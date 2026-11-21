@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="manifest.json" />
+  <title>RoundingOS</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ===================== Header: 5 controls ===================== -->
+  <header class="app-header">
+    <button type="button" class="icon-btn" id="toggleCensusBtn" title="Show / hide patient list" aria-label="Show or hide patient list">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+    </button>
+    <div class="brand">
+      <span class="brand-title">RoundingOS</span>
+      <span class="brand-sub" id="serviceHeaderLabel">Hospitalist Service</span>
+    </div>
+    <nav class="census-summary" id="censusSummary" aria-label="Census summary — click to filter"></nav>
+    <div class="header-spacer"></div>
+    <button type="button" class="btn btn-ghost header-clock-btn" id="openRemindersBtn" title="Follow-up alarms (Alt+R)">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5"/></svg>
+      <span id="headerClockText">--:--</span>
+      <span class="alarm-count-pill hidden" id="headerAlarmCount"></span>
+    </button>
+    <button type="button" class="btn btn-primary" id="openSignoutBtn" title="Shift sign-out / handoff (Alt+S)">Sign-out</button>
+    <div class="dropdown-wrap" id="toolsDropdownWrap">
+      <button type="button" class="icon-btn" id="toolsMenuBtn" aria-expanded="false" aria-haspopup="true" aria-label="More">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+      </button>
+      <div class="dropdown-menu hidden" id="toolsDropdown" role="menu">
+        <button class="dropdown-item" id="openPlanBuilderBtn" role="menuitem">Plan Builder <kbd>Alt B</kbd></button>
+        <button class="dropdown-item" id="voiceHelpBtn" role="menuitem">Voice commands &amp; vocabulary</button>
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-label">Layout</div>
+        <button class="dropdown-item dropdown-check" id="togglePatientPaneBtn" role="menuitemcheckbox">Patient panel</button>
+        <button class="dropdown-item dropdown-check" id="toggleRightPaneBtn" role="menuitemcheckbox">Note panel</button>
+        <button class="dropdown-item dropdown-check" id="themeToggleBtn" role="menuitemcheckbox">Dark mode</button>
+        <div class="dropdown-divider"></div>
+        <button class="dropdown-item" id="newDayBtn" role="menuitem">New hospital day…</button>
+        <button class="dropdown-item" id="dataModalBtn" role="menuitem">Settings &amp; backup…</button>
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-label">Test data</div>
+        <button class="dropdown-item" id="addTestPatientsBtn" role="menuitem">Add 14 test patients</button>
+        <button class="dropdown-item" id="removeTestPatientsBtn" role="menuitem">Remove test patients</button>
+        <button class="dropdown-item dropdown-item-danger" id="clearCensusQuickBtn" role="menuitem">Clear entire census…</button>
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-status" id="storageBadge"><span class="storage-dot"></span><span id="storageBadgeText">Saved on this device</span></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Live voice banner (only while the mic is on) -->
+  <div class="voice-banner hidden" id="voiceBanner" role="status" aria-live="polite">
+    <span class="pulse-dot"></span>
+    <strong id="voiceBannerMode">Listening</strong>
+    <span class="voice-transcript" id="voiceTranscript"></span>
+    <button type="button" class="btn btn-sm btn-ghost" id="stopVoiceBannerBtn">Stop</button>
+  </div>
+
+  <!-- ===================== Workspace ===================== -->
+  <main class="workspace" id="workspaceRoot">
+    <!-- Census -->
+    <aside class="census-pane" id="censusPane" aria-label="Patient list">
+      <div class="census-toolbar">
+        <div class="census-search-row">
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16" y2="16"/></svg>
+            <input type="search" id="searchInput" data-dictate-replace="true" placeholder="Search room, name, dx" autocomplete="off" />
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" id="addPatientBtn" title="Add patient">+ Add</button>
+        </div>
+        <div class="census-controls">
+          <select id="filterSelect" aria-label="Filter patients">
+            <option value="all">All patients</option>
+            <option value="sick">Sick</option>
+            <option value="watcher">Watcher</option>
+            <option value="discharge">D/C today</option>
+            <option value="stable">Stable</option>
+            <option value="unseen">Not seen</option>
+            <option value="unsigned">No note</option>
+            <option value="openTasks">Open tasks</option>
+          </select>
+          <select id="sortSelect" aria-label="Sort patients">
+            <option value="priority">Sickest first</option>
+            <option value="room">Room</option>
+            <option value="incomplete">Least done</option>
+            <option value="tasks">Most tasks</option>
+            <option value="name">Name</option>
+          </select>
+        </div>
+      </div>
+      <div class="census-list" id="censusList"></div>
+    </aside>
+
+    <!-- Patient -->
+    <section class="detail-pane" id="detailPane" aria-label="Selected patient"></section>
+
+    <!-- Progress note (single place to write the note) -->
+    <aside class="note-pane" id="rightDockPane" aria-label="Progress note">
+      <div class="note-head">
+        <div class="note-head-title">
+          <span class="pane-title">Progress note</span>
+          <span class="small-muted" id="rightNoteLiveHint"></span>
+        </div>
+        <div class="dropdown-wrap" id="noteOptsWrap">
+          <button type="button" class="icon-btn" id="noteOptsBtn" aria-label="Note options" title="Note options">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+          </button>
+          <div class="dropdown-menu hidden" id="noteOptsMenu">
+            <div class="dropdown-label">Include in note</div>
+            <label class="dropdown-item dropdown-checkrow"><input type="checkbox" id="pnIncConsults" /> Consult recommendations</label>
+            <label class="dropdown-item dropdown-checkrow"><input type="checkbox" id="pnIncTasks" /> Open tasks</label>
+            <label class="dropdown-item dropdown-checkrow"><input type="checkbox" id="pnIncCont" /> If / then contingencies</label>
+            <label class="dropdown-item dropdown-checkrow"><input type="checkbox" id="pnStripNotes" /> Hide [NOTE: …] text</label>
+            <div class="dropdown-divider"></div>
+            <button type="button" class="dropdown-item" id="pnDownloadTxtBtn">Download .txt</button>
+            <button type="button" class="dropdown-item" id="pnPrintBtn">Print</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="note-body">
+        <div class="note-fields">
+          <section class="note-group" data-note-group="subj">
+            <button type="button" class="note-group-head" data-note-toggle="subj"><span>Subjective &amp; exam</span><span class="note-group-state" id="ngStateSubj"></span></button>
+            <div class="note-group-body">
+              <div class="field">
+                <div class="field-head"><label for="rdSubjective">Subjective / overnight</label><button type="button" class="link-btn" id="rdNormalSubjBtn">Insert template</button></div>
+                <textarea id="rdSubjective" rows="3" data-mic placeholder="Overnight events, symptoms…"></textarea>
+              </div>
+              <div class="field">
+                <div class="field-head"><label for="rdExam">Physical exam</label><button type="button" class="link-btn" id="rdNormalExamBtn">Insert normal exam</button></div>
+                <textarea id="rdExam" rows="4" data-mic placeholder="Not documented until you enter it"></textarea>
+              </div>
+            </div>
+          </section>
+
+          <section class="note-group" data-note-group="obj">
+            <button type="button" class="note-group-head" data-note-toggle="obj"><span>Objective</span><span class="note-group-state" id="ngStateObj"></span></button>
+            <div class="note-group-body">
+              <div class="field"><label for="rdVitals">Vitals &amp; tele</label><textarea id="rdVitals" rows="2" data-mic placeholder="T, HR, BP, RR, SpO2, O2"></textarea></div>
+              <div class="field"><label for="rdLabs">Labs / micro</label><textarea id="rdLabs" rows="2" data-mic placeholder="WBC, Hgb, Cr, K, cultures…"></textarea></div>
+              <div class="field"><label for="rdOutputs">I&amp;O</label><textarea id="rdOutputs" rows="2" data-mic placeholder="In / out, net, UOP, drains"></textarea></div>
+              <div class="field-row">
+                <div class="field">
+                  <div class="field-head"><label for="rdLastBm">Last BM</label><button type="button" class="link-btn" id="rdBmTodayBtn">Today</button></div>
+                  <input type="text" id="rdLastBm" data-mic placeholder="e.g. 11/20, soft" />
+                </div>
+                <div class="field"><label for="rdWeight">Weight</label><input type="text" id="rdWeight" data-mic placeholder="kg (Δ vs admit)" /></div>
+              </div>
+              <div class="field"><label for="rdImaging">Imaging &amp; diagnostics</label><textarea id="rdImaging" rows="2" data-mic placeholder="CXR, CT, TTE, ECG…"></textarea></div>
+            </div>
+          </section>
+
+          <section class="note-group" data-note-group="ap">
+            <button type="button" class="note-group-head" data-note-toggle="ap"><span>Assessment &amp; plan</span><span class="note-group-state" id="ngStateAp"></span></button>
+            <div class="note-group-body">
+              <div class="suggest-row">
+                <div class="pn-suggested-pills" id="rightSuggestedPills"></div>
+                <button type="button" class="btn btn-sm btn-secondary" id="rightOpenPlanBuilderBtn">+ Add problem</button>
+              </div>
+              <div class="field">
+                <div class="field-head"><label for="rdPlan">Problems &amp; plan</label><span class="small-muted">Type .GB… + space to expand · F2 next ***</span></div>
+                <textarea id="rdPlan" rows="8" class="mono" data-mic placeholder="# Problem&#10;- plan…"></textarea>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="note-preview">
+          <div class="draft-banner hidden" id="noteDraftBanner">
+            <span>Hand-edited — chart changes won't update it.</span>
+            <button type="button" class="link-btn" id="rebuildNoteBtn">Rebuild from chart</button>
+          </div>
+          <textarea id="rightNotePreview" class="note-textarea" spellcheck="false" aria-label="Progress note preview"></textarea>
+        </div>
+      </div>
+
+      <div class="note-foot">
+        <span class="note-blanks" id="noteBlanks"></span>
+        <label class="inline-check" title="When ticked, copying also ticks Note on the checklist"><input type="checkbox" id="markWrittenChk" /> Mark note written on copy</label>
+        <button type="button" class="btn btn-primary" id="rightCopyBtn">Copy note</button>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Floating mic: dictates into the focused field, or listens for commands -->
+  <button type="button" class="fab-mic" id="fabMic" title="Dictate into the focused field, or voice command (Alt+M)" aria-label="Voice">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+    <span class="fab-mic-label" id="fabMicLabel"></span>
+  </button>
+
+  <!-- Mobile bottom navigation -->
+  <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Mobile navigation">
+    <button class="mob-nav-btn active" id="mobNavCensus">Census</button>
+    <button class="mob-nav-btn" id="mobNavPatient">Patient</button>
+    <button class="mob-nav-btn" id="mobNavNote">Note</button>
+    <button class="mob-nav-btn" id="mobNavSignout">Sign-out</button>
+  </nav>
+
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <!-- ===================== Add / edit patient ===================== -->
+  <div class="modal-backdrop hidden" id="patientModal" role="dialog" aria-modal="true" aria-labelledby="patientModalTitle">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <h3 id="patientModalTitle">Add patient</h3>
+        <button class="btn-close" data-close-modal="patientModal" aria-label="Close">&times;</button>
+      </div>
+      <form id="patientForm" class="modal-body">
+        <input type="hidden" id="pfId" />
+
+        <details class="intake-box" id="intakeDetails">
+          <summary>Dictate or paste a summary to fill the fields</summary>
+          <div class="intake-inner">
+            <div class="intake-actions">
+              <button type="button" class="btn btn-sm btn-voice" id="dictateFullPatientBtn"><span id="dictateFullPatientLabel">Start dictation</span></button>
+              <button type="button" class="btn btn-sm btn-secondary" id="pfReparseBtn">Fill fields</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="pfClearTranscriptBtn">Clear</button>
+            </div>
+            <div class="small-muted" id="pfVoiceStatus"></div>
+            <textarea id="pfFreestyleTranscript" rows="3" placeholder="e.g. Room 415B, John Miller, 72 year old man, DNR DNI, allergic to penicillin, admitted for septic pneumonia…"></textarea>
+            <div class="freestyle-interim hidden" id="pfVoiceInterim"></div>
+            <div class="freestyle-detected-pills hidden" id="pfAutoExtractedSummary"></div>
+          </div>
+        </details>
+
+        <div class="form-grid-3">
+          <div class="form-group"><label for="pfRoom">Room *</label><input type="text" id="pfRoom" required placeholder="432A" /></div>
+          <div class="form-group col-span-2"><label for="pfName">Name or initials *</label><input type="text" id="pfName" required /></div>
+        </div>
+        <div class="form-grid-4">
+          <div class="form-group"><label for="pfAge">Age *</label><input type="number" id="pfAge" min="0" max="120" required /></div>
+          <div class="form-group">
+            <label for="pfSex">Sex *</label>
+            <select id="pfSex" required><option value="">—</option><option value="F">F</option><option value="M">M</option><option value="X">X</option></select>
+          </div>
+          <div class="form-group"><label for="pfHospitalDay">Hosp day</label><input type="number" id="pfHospitalDay" min="1" max="365" value="1" /></div>
+          <div class="form-group">
+            <label for="pfCodeStatus">Code status *</label>
+            <select id="pfCodeStatus" required>
+              <option value="">—</option>
+              <option value="Full Code">Full Code</option>
+              <option value="DNR / DNI">DNR / DNI</option>
+              <option value="DNR / Full Intubation">DNR / OK to intubate</option>
+              <option value="Comfort Care">Comfort Care</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label for="pfPriority">Acuity</label>
+            <select id="pfPriority">
+              <option value="sick">Sick — see first</option>
+              <option value="watcher">Watcher</option>
+              <option value="discharge">Discharge today</option>
+              <option value="stable" selected>Stable</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="pfAllergies">Allergies</label>
+            <input type="text" id="pfAllergies" placeholder="Leave blank if not yet verified; type NKDA if none" />
+          </div>
+        </div>
+        <div class="form-group"><label for="pfPrimaryDx">Primary diagnosis *</label><input type="text" id="pfPrimaryDx" required data-mic /></div>
+        <div class="form-group"><label for="pfOneLiner">One-liner</label><textarea id="pfOneLiner" rows="2" data-mic placeholder="Age/sex with PMH admitted for…"></textarea></div>
+        <div class="form-group"><label for="pfMrn">Local ID (optional)</label><input type="text" id="pfMrn" /></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close-modal="patientModal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== Sign-out ===================== -->
+  <div class="modal-backdrop hidden" id="signoutModal" role="dialog" aria-modal="true" aria-labelledby="signoutModalTitle">
+    <div class="modal modal-xl">
+      <div class="modal-header">
+        <h3 id="signoutModalTitle">Sign-out</h3>
+        <button class="btn-close" data-close-modal="signoutModal" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body signout-body">
+        <div class="signout-controls">
+          <div class="segmented-control" id="signoutModeTabs">
+            <button class="seg-btn active" data-mode="shift">Shift (I-PASS)</button>
+            <button class="seg-btn" data-mode="transfer">Service transfer</button>
+            <button class="seg-btn" data-mode="single">This patient</button>
+          </div>
+          <div class="segmented-control" id="signoutViewTabs">
+            <button type="button" class="seg-btn active" data-so-view="formatted">Sheet</button>
+            <button type="button" class="seg-btn" data-so-view="text">Plain text</button>
+          </div>
+        </div>
+        <div class="signout-options">
+          <label class="inline-check"><input type="checkbox" id="soSickOnly" /> Sick &amp; watcher only</label>
+          <label class="inline-check"><input type="checkbox" id="soIncludeSnapshot" /> Vitals / labs</label>
+          <label class="inline-check"><input type="checkbox" id="soIncludeDone" /> Completed tasks</label>
+          <label class="inline-check"><input type="checkbox" id="soIncludeGaps" /> Unchecked items</label>
+          <select id="soSortBy" aria-label="Order"><option value="priority">Sickest first</option><option value="room">By room</option></select>
+        </div>
+        <div class="draft-banner hidden" id="signoutEditedBanner">Plain text edited by hand — changing options will rebuild it.</div>
+        <div id="signoutFormattedPreview" class="signout-formatted-wrap"></div>
+        <textarea id="signoutTextarea" class="signout-editor hidden" spellcheck="false" data-mic aria-label="Sign-out text"></textarea>
+      </div>
+      <div class="modal-footer">
+        <div class="footer-left">
+          <div class="dropdown-wrap dropup" id="soMoreWrap">
+            <button type="button" class="btn btn-ghost" id="soMoreBtn">More ▾</button>
+            <div class="dropdown-menu hidden" id="soMoreMenu">
+              <button type="button" class="dropdown-item" id="regenerateSignoutBtn">Rebuild from chart</button>
+              <button type="button" class="dropdown-item" id="downloadMdBtn">Download .md</button>
+              <button type="button" class="dropdown-item" id="downloadTxtBtn">Download .txt</button>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-secondary" id="printSignoutBtn">Print / PDF</button>
+        <button class="btn btn-primary" id="copySignoutBtn">Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Voice help ===================== -->
+  <div class="modal-backdrop hidden" id="voiceHelpModal" role="dialog" aria-modal="true" aria-labelledby="voiceHelpTitle">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <h3 id="voiceHelpTitle">Voice</h3>
+        <button class="btn-close" data-close-modal="voiceHelpModal" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="small-muted" style="margin-top:0">The mic button (bottom right, or <kbd>Alt M</kbd>) dictates into whichever field has focus. With no field focused it listens for commands. Hover any text box to see its own mic.</p>
+        <table class="cmd-table">
+          <thead><tr><th>Say</th><th>Does</th></tr></thead>
+          <tbody>
+            <tr><td>"Select room 405" · "Open Margaret"</td><td>Jump to patient</td></tr>
+            <tr><td>"Next patient"</td><td>Step through the list</td></tr>
+            <tr><td>"Mark labs reviewed" · "Check outputs"</td><td>Tick checklist items</td></tr>
+            <tr><td>"Set weight 82.4 kg" · "Set dispo SNF"</td><td>Fill a field</td></tr>
+            <tr><td>"Mark sick" · "Mark watcher" · "Mark stable"</td><td>Change acuity (with Undo)</td></tr>
+            <tr><td>"Add urgent task recheck potassium at 4 PM"</td><td>Add a task</td></tr>
+            <tr><td>"Add consult nephrology for AKI"</td><td>Add a consult</td></tr>
+            <tr><td>"Add contingency if fever draw cultures"</td><td>Add an if/then</td></tr>
+            <tr><td>"Remind me in 2 hours check potassium"</td><td>Set an alarm</td></tr>
+            <tr><td>"Generate sign out"</td><td>Open sign-out</td></tr>
+          </tbody>
+        </table>
+        <h4 class="section-label">Personal corrections <span class="small-muted" id="medVocabStatsPill"></span></h4>
+        <form id="addMedVocabForm" class="vocab-form">
+          <input type="text" id="medVocabHeard" placeholder="When it hears… (sepia beam)" required />
+          <input type="text" id="medVocabReplace" placeholder="Write… (cefepime)" required />
+          <button type="submit" class="btn btn-sm btn-primary">Add</button>
+        </form>
+        <div id="medVocabList" class="vocab-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Settings & backup ===================== -->
+  <div class="modal-backdrop hidden" id="dataModal" role="dialog" aria-modal="true" aria-labelledby="dataModalTitle">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <h3 id="dataModalTitle">Settings &amp; backup</h3>
+        <button class="btn-close" data-close-modal="dataModal" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid-2">
+          <div class="form-group"><label for="setProviderName">Provider / team</label><input type="text" id="setProviderName" placeholder="Dr. Smith (Day Team A)" /></div>
+          <div class="form-group"><label for="setServiceName">Service</label><input type="text" id="setServiceName" placeholder="Internal Medicine — Hospitalist" /></div>
+        </div>
+        <p class="small-muted">All data stays on this computer (browser storage, plus <code>data/hospitalist-data.json</code> when started with the launcher).</p>
+        <h4 class="section-label">Backup</h4>
+        <div class="data-actions-grid">
+          <button class="btn btn-primary" id="exportEncryptedBtn">Export encrypted (.rnos)</button>
+          <label class="btn btn-secondary file-upload-btn">Import backup…<input type="file" id="importJsonInput" accept=".rnos,.json" hidden /></label>
+          <button class="btn btn-ghost warn-text" id="exportJsonBtn" title="Contains patient information in readable form">Export unencrypted (.json) ⚠</button>
+        </div>
+        <h4 class="section-label">Test data</h4>
+        <div class="data-actions-grid">
+          <button class="btn btn-secondary" id="resetDemoBtn">Replace census with test patients</button>
+          <button class="btn btn-danger-outline" id="clearAllBtn">Clear all patients…</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close-modal="dataModal">Close</button>
+        <button class="btn btn-primary" id="saveSettingsBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Passphrase ===================== -->
+  <div class="modal-backdrop hidden" id="passModal" role="dialog" aria-modal="true" aria-labelledby="passModalTitle" style="z-index:170;">
+    <form class="modal modal-sm" id="passForm">
+      <div class="modal-header"><h3 id="passModalTitle">Backup passphrase</h3></div>
+      <div class="modal-body">
+        <p class="small-muted" id="passHint" style="margin-top:0"></p>
+        <div class="form-group"><label for="passInput">Passphrase</label><input type="password" id="passInput" autocomplete="new-password" /></div>
+        <div class="form-group" id="passConfirmGroup"><label for="passConfirm">Confirm</label><input type="password" id="passConfirm" autocomplete="new-password" /></div>
+        <div class="form-error hidden" id="passError"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="passCancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary">OK</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ===================== Plan Builder ===================== -->
+  <div class="modal-backdrop hidden" id="planBuilderModal" role="dialog" aria-modal="true" aria-labelledby="planBuilderModalTitle">
+    <div class="modal modal-planbuilder">
+      <div class="modal-header pb-modal-header">
+        <div class="pb-modal-title-wrap">
+          <h2 id="planBuilderModalTitle">Plan Builder</h2>
+          <div class="pb-patient-banner" id="pbActivePatientChip"></div>
+        </div>
+        <div class="pb-header-right">
+          <button type="button" class="btn btn-sm btn-ghost" id="pbNewCustomBtn">New template</button>
+          <button type="button" class="icon-btn" id="pbSettingsToggleBtn" title="Format, export, import" aria-label="Format, export, import">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+          </button>
+          <button type="button" class="btn-close" data-close-modal="planBuilderModal" aria-label="Close">&times;</button>
+        </div>
+      </div>
+
+      <div class="pb-settings-drawer hidden" id="pbSettingsDrawer">
+        <div class="pb-settings-row">
+          <label class="pb-set-inline">Trigger prefix <input type="text" id="pbSetPrefix" value="GB" maxlength="6" class="pb-prefix-input" /></label>
+          <label class="inline-check"><input type="checkbox" id="pbSetLeadingDot" checked /> Leading dot</label>
+          <label class="inline-check"><input type="checkbox" id="pbSetShowHeader" checked /> Trigger header (Epic)</label>
+          <label class="inline-check"><input type="checkbox" id="pbSetCompact" /> Compact</label>
+          <label class="inline-check"><input type="checkbox" id="pbSetStripWc" /> Drop unfilled ***</label>
+        </div>
+        <div class="pb-settings-row">
+          <button type="button" class="btn btn-sm btn-secondary" id="pbExportTxtBtn">Export all (.txt)</button>
+          <button type="button" class="btn btn-sm btn-secondary" id="pbExportJsonBtn">Export my templates</button>
+          <label class="btn btn-sm btn-secondary">Import…<input type="file" id="pbImportJsonInput" accept=".json" hidden /></label>
+        </div>
+      </div>
+
+      <div class="pb-studio-grid">
+        <aside class="pb-col-catalog">
+          <div class="pb-search-bar">
+            <input type="search" id="pbSearchInput" placeholder="Search conditions  ( / )" aria-label="Search templates" />
+          </div>
+          <div class="pb-cat-pills" id="pbCatPills"></div>
+          <div class="pb-match-bar"><span class="small-muted" id="pbMatchCount"></span></div>
+          <div class="pb-phrase-list" id="pbPhraseList"></div>
+        </aside>
+
+        <section class="pb-col-builder">
+          <div class="pb-builder-header">
+            <div class="pb-builder-trig-row">
+              <code class="pb-trig-badge" id="pbBuilderTrigger"></code>
+              <button type="button" class="btn btn-xs btn-ghost pb-star-btn" id="pbStarActiveBtn">☆ Star</button>
+              <div id="pbCustomActions" class="row-gap"></div>
+            </div>
+            <h3 id="pbBuilderTitle">Select a condition</h3>
+          </div>
+          <div class="pb-builder-body" id="pbBuilderBody"></div>
+        </section>
+
+        <aside class="pb-col-preview">
+          <div class="pb-preview-top">
+            <div class="segmented-control" id="pbOutputModeTabs">
+              <button type="button" class="seg-btn active" data-pb-out-mode="note">Note text</button>
+              <button type="button" class="seg-btn" data-pb-out-mode="epic">Epic SmartPhrase</button>
+            </div>
+            <span class="pb-wc-status pending" id="pbWildcardBadge"></span>
+          </div>
+          <pre class="pb-output-pre" id="pbOutputPreview"></pre>
+          <div class="pb-preview-actions">
+            <button type="button" class="btn btn-primary" id="pbInsertToPatientBtn">Insert into note</button>
+            <div class="pb-preview-actions-row">
+              <button type="button" class="btn btn-sm btn-secondary" id="pbCopyBtn">Copy</button>
+              <button type="button" class="btn btn-sm btn-secondary" id="pbAddToCartBtn">Add to A&amp;P list</button>
+            </div>
+          </div>
+          <div class="pb-cart-box">
+            <div class="pb-cart-head">
+              <span>A&amp;P list <span id="pbCartOwner" class="small-muted"></span> <span class="count-badge" id="pbCartCount">0</span></span>
+              <button type="button" class="btn btn-xs btn-ghost" id="pbCartClearBtn">Clear</button>
+            </div>
+            <div class="pb-cart-list" id="pbCartList"></div>
+            <div class="pb-cart-actions hidden" id="pbCartActions">
+              <button type="button" class="btn btn-sm btn-secondary" id="pbCartCopyAllBtn">Copy all</button>
+              <button type="button" class="btn btn-sm btn-primary" id="pbCartInsertAllBtn">Insert all into note</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom template editor (the only custom-phrase editor) -->
+  <div class="modal-backdrop hidden" id="pbCustomPhraseModal" role="dialog" aria-modal="true" aria-labelledby="pbCustomModalTitle" style="z-index:130;">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <h3 id="pbCustomModalTitle">New template</h3>
+        <button type="button" class="btn-close" data-close-pb-custom aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid-2">
+          <div class="form-group"><label for="pbCustTrigger">Trigger (no dot)</label><input type="text" id="pbCustTrigger" placeholder="GBMYCHF" /></div>
+          <div class="form-group"><label for="pbCustCategory">Category</label><input type="text" id="pbCustCategory" value="Custom" /></div>
+        </div>
+        <div class="form-group"><label for="pbCustTitle">Title</label><input type="text" id="pbCustTitle" placeholder="My CHF discharge plan" /></div>
+        <div class="form-group"><label for="pbCustAssessment">Assessment line (*** = blank)</label><input type="text" id="pbCustAssessment" data-mic placeholder="ADHF, EF ***, net ***." /></div>
+        <div class="form-group"><label for="pbCustWorkup">Workup (one per line)</label><textarea id="pbCustWorkup" rows="3" data-mic></textarea></div>
+        <div class="form-group"><label for="pbCustPlan">Plan (one per line)</label><textarea id="pbCustPlan" rows="4" data-mic></textarea></div>
+        <div class="form-group"><label for="pbCustRedFlags">Red flags / dispo (optional)</label><input type="text" id="pbCustRedFlags" /></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close-pb-custom>Cancel</button>
+        <button type="button" class="btn btn-primary" id="pbSaveCustomBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Alarms ===================== -->
+  <div class="modal-backdrop hidden" id="remindersModal" role="dialog" aria-modal="true" aria-labelledby="remindersModalTitle">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <h3 id="remindersModalTitle">Follow-up alarms</h3>
+        <button type="button" class="btn-close" data-close-modal="remindersModal" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="addReminderForm" class="rem-form-card">
+          <div class="form-group"><label for="remNoteInput">Reminder</label><input type="text" id="remNoteInput" required data-mic placeholder="Recheck K and ECG…" /></div>
+          <div class="rem-preset-row">
+            <button type="button" class="btn btn-xs btn-secondary" data-rem-preset-min="15">+15m</button>
+            <button type="button" class="btn btn-xs btn-secondary" data-rem-preset-min="30">+30m</button>
+            <button type="button" class="btn btn-xs btn-secondary active" data-rem-preset-min="60">+1h</button>
+            <button type="button" class="btn btn-xs btn-secondary" data-rem-preset-min="120">+2h</button>
+            <button type="button" class="btn btn-xs btn-secondary" data-rem-preset-min="240">+4h</button>
+          </div>
+          <div class="form-grid-2">
+            <div class="form-group"><label for="remExactTime">Time</label><input type="time" id="remExactTime" required /></div>
+            <div class="form-group"><label for="remPatientSelect">Patient</label><select id="remPatientSelect"></select></div>
+          </div>
+          <div class="rem-form-footer">
+            <label class="inline-check"><input type="checkbox" id="remPlaySound" checked /> Sound</label>
+            <button type="button" class="link-btn" id="remTestSoundBtn">Test sound</button>
+            <button type="submit" class="btn btn-sm btn-primary">Set alarm</button>
+          </div>
+        </form>
+        <div class="rem-notif-bar">
+          <span class="small-muted">Alerts while you work in another window</span>
+          <button type="button" class="btn btn-xs btn-secondary" id="remEnableNotifBtn">Enable desktop alerts</button>
+        </div>
+        <div id="remindersList" class="rem-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="alarmAlertModal" role="alertdialog" aria-modal="true" aria-labelledby="alarmAlertTitle" data-no-dismiss style="z-index:160;">
+    <div class="modal modal-sm alarm-alert-card">
+      <div class="alarm-alert-header">
+        <div>
+          <h3 id="alarmAlertTitle">Follow-up due</h3>
+          <div class="small-muted" id="alarmAlertTime"></div>
+        </div>
+      </div>
+      <div class="alarm-alert-body">
+        <div class="alarm-alert-patient" id="alarmAlertPatient"></div>
+        <div class="alarm-alert-text" id="alarmAlertText"></div>
+      </div>
+      <div class="alarm-alert-actions">
+        <button type="button" class="btn btn-sm btn-secondary" id="alarmAlertSnooze15Btn">+15 min</button>
+        <button type="button" class="btn btn-sm btn-secondary" id="alarmAlertSnooze30Btn">+30 min</button>
+        <button type="button" class="btn btn-sm btn-secondary" id="alarmAlertJumpBtn">Open patient</button>
+        <button type="button" class="btn btn-sm btn-primary" id="alarmAlertDismissBtn">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="printArea" class="print-only"></div>
+
+  <script src="data.js"></script>
+  <script src="crypto.js"></script>
+  <script src="dotphrases.js"></script>
+  <script src="progressnote.js"></script>
+  <script src="planbuilder.js"></script>
+  <script src="reminders.js"></script>
+  <script src="speech.js"></script>
+  <script src="signout.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

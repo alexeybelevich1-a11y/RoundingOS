@@ -1,0 +1,11 @@
+# Patient data and backups must never be committed
+data/
+*.rnos
+roundingos-backup-*.json
+hospitalist-data*.json
+backup-*.json
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

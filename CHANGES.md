@@ -1,0 +1,54 @@
+# RoundingOS — changes from the review (2026-11-20)
+
+Drop these files over your current ones. `dotphrases.js` is your own file, included unchanged (193 templates, 12 SmartLists).
+`Start-Hospitalist-Tracker.bat` and `manifest.json` are unchanged too.
+
+Files: `dotphrases.js` (yours, unchanged), `index.html`, `styles.css`, `app.js`, `data.js`, `progressnote.js`, `planbuilder.js`,
+`reminders.js`, `signout.js`, `speech.js`, `server.ps1` (`crypto.js` unchanged, included for completeness).
+
+Saved data migrates automatically: the legacy `weights` checklist key becomes `bm`, and the UI state is reset to the new layout once.
+
+## Safety & data fixes
+- **C1** No normal exam or "imaging: none new" is ever inserted unless you click *Insert normal exam*; blanks stay `***`.
+- **C2** Unknown allergies show as amber **"Allergies not recorded"** everywhere (banner, note, sign-out); NKDA only when entered. New patients no longer default to 65 M: age, sex and code status are required.
+- **C3** Hand edits to the note are kept as a per-patient draft ("Hand-edited — Rebuild from chart"); nothing re-renders over them.
+- **C4** Progress Note Studio modal removed (its features are now in the note panel). Plan Builder A&P list is per patient, and the builder shows "Writing for Rm …" in that patient's acuity color.
+- **C5** New-day rollover clears subjective, exam, last BM and note drafts, and moves yesterday's vitals, labs, I&O, weight and imaging to placeholder hints ("Yesterday: …"). It warns if you already rolled over today.
+- **C6** Calculators only pre-fill from the chart. Missing inputs show "Enter X to calculate" and Apply is disabled.
+- **C7** A patient who is done for today (all 12 checks, including Seen and Note) gets a solid green card. The acuity stripe keeps its color and the tag becomes a white chip, so a finished sick patient still reads as sick.
+
+## Functional fixes
+- **Alarms:** Esc snoozes 15 min instead of silently killing all later alarms. Clicking the backdrop no longer dismisses. Snoozing one alarm no longer closes another. Alarms that rang before a reload ring again. Alarms re-check when the tab becomes visible. Removing a patient unlinks their alarms.
+- **Voice:** acuity commands are anchored and parsed last ("set dispo discharge to SNF" now sets dispo). Name matching is by whole or start of word. Acuity changes show an **Undo** toast.
+- **Dictation:** "colon"/"period" after anatomy (sigmoid colon, refractory period) stay as words. "as part of" no longer becomes "aspart". "dig" only becomes digoxin before level/toxicity/number. Number fields keep decimals. "patient is a…" no longer becomes the name "Is".
+- **Calculators:** delta-delta labels HAGMA + met alk correctly. The 24 h Na cap uses corrected Na when glucose > 200. CHA2DS2-VASc no longer counts venous VTE as stroke.
+- `.GB` trigger expansion honors a custom prefix.
+- **Import:** backup import asks before replacing, with counts, and keeps a one-time snapshot (`roundingos_pre_import_snapshot` in localStorage). Plan Builder import merges instead of replacing.
+- **Backup:** the passphrase uses a masked dialog with confirmation and at least 10 characters. Unencrypted export warns first.
+- **Print / tabs / misc:** dark-mode printing uses the light palette. Sign-out plain-text edits warn before a rebuild. A second open tab reloads instead of overwriting. Duplicate room numbers warn. Downloads no longer revoke too early. Guideline links are https only.
+
+## Server (server.ps1) — not run here (no PowerShell available); please test once
+- 403 unless `Host` is localhost/127.0.0.1 on the active port (blocks DNS rebinding).
+- `/api/data` requires the `X-RoundingOS: 1` header, a same-origin `Origin`, and `application/json` on POST (blocks cross-site writes).
+- POST bodies must parse as JSON with a `patients` field.
+- Atomic write (temp file, then move) plus hourly backups `data/backup-YYYYMMDD-HH.json` (last 24 kept).
+- Path check uses a trailing separator, and `/data/` is never served as a static file.
+
+## Layout
+- **Header:** menu, name, a census summary (each number filters), clock/alarms, Sign-out and a ⋯ menu (Plan Builder, voice, layout toggles, dark mode, new day, settings, test data).
+- **Census:** search + Add, filter and sort dropdowns, 2-line cards (room, name, task count, acuity / diagnosis, S = seen, N = note).
+- **Patient:** sticky header with code status (colored only if not Full Code) and allergies. A pre-round meter that expands, 4 encounter toggles, and tabs: Tasks · Consults · Summary · If/then. The If/then tab shows an amber dot when a sick or watcher patient has none.
+- **Note panel:** the only place to write the note. Three field groups (Subjective & exam · Objective · Assessment & plan) with status hints, a draft-protected preview, a blanks counter, and Copy note. "Mark note written on copy" is off by default and remembers your choice. Hiding the patient panel gives the note full width. Hiding the census (☰) shows the patient panel on the left and the note panel on the right: a narrow column of note fields plus the live note at full height, updating as you type.
+- **Mics:** one floating mic (dictates into the focused field, or listens for commands; Alt+M). Per-field mics appear only on hover or focus.
+- **Shortcuts:** Alt+B Plan Builder (Alt+D clashed with the browser's address bar), Alt+P note, Alt+S sign-out, Alt+R alarms, Alt+M voice.
+- **CSS:** about 4,375 → 2,300 lines. One token set, 4 type sizes, no 800 weights, dead rules removed.
+
+## Checked against your 193-template library
+- All 193 templates load and open in Plan Builder with no errors. All 12 SmartLists render, and every `{SmartList}` reference resolves.
+- All workup/management pairs are complete. Every suggestion-rule trigger and every `.GB…` cross-reference inside a template points to an existing template.
+- All 9 calculators fill the right `***` in your template text.
+- Suggestions now rank templates that match the primary diagnosis first. Before, the syncope and PE test patients were offered ACS templates first because "troponin" appeared in their notes.
+- Insulin start: when the template already reads "= *** u", the TDD fills the number only. The basal/prandial split goes on its own "Insulin plan:" line instead of producing "= 33 (…) u".
+
+## Public-release cleanup
+- Removed institution-specific references from the template library and Plan Builder (hospital names, state-specific form names, local order-set/panel names, "per local policy" notes). Clinical content unchanged; all 193 templates and 12 SmartLists still validate.
