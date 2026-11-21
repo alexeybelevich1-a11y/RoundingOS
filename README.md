@@ -1,7 +1,8 @@
 # RoundingOS
 
 Local-first hospitalist rounding workstation: census, checklists, tasks, consults, live progress note,
-193 structured workup/management templates (Plan Builder), I-PASS sign-out, alarms and voice dictation.
+211 structured workup/management templates and 10 interactive clinical algorithms (Plan Builder),
+I-PASS sign-out, alarms and voice dictation.
 Plain HTML/CSS/JavaScript with no dependencies.
 
 ## Run (Windows)
