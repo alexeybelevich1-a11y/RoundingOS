@@ -52,3 +52,12 @@ Saved data migrates automatically: the legacy `weights` checklist key becomes `b
 
 ## Public-release cleanup
 - Removed institution-specific references from the template library and Plan Builder (hospital names, state-specific form names, local order-set/panel names, "per local policy" notes). Clinical content unchanged; all 193 templates and 12 SmartLists still validate.
+
+## Interactive clinical algorithms (Plan Builder)
+- New `algorithms.js`: 10 branching decision algorithms, from the Dotphrase Generator workbench: hyponatremia (Posm → Uosm → UNa → euvolemic cause, plus severity/ODS modifiers), AKI, hyperkalemia, CAP, AFib with RVR, acute pancreatitis, GI bleed, complicated UTI/pyelonephritis, metabolic acidosis and pleural effusion.
+- Pick the branch the patient is on, and the template's assessment, workup, plan and red flags are rewritten for that branch. Later steps appear only when an earlier answer calls for them, e.g. Uosm/UNa only for true hypotonic hyponatremia.
+- Branch choices are kept per patient, so one patient's path never carries over to another. Each branch path keeps its own checkboxes and *** fills, and "Fill from chart" works on the branch-specific lines.
+- The "Algorithm" switch turns an algorithm off to get the original static template back. "Reset" returns to the default branches.
+- New "Algorithms" filter in the catalog. Cards with an algorithm carry an "Algo" tag and open in Combined A&P view.
+- Assessment lines show readable branch names, such as "(non-septic, low resistance risk)", not internal codes like "(std)".
+- 18 new "Expanded Inpatient" templates (metabolic acidosis, hypernatremia, pleural effusion, HRS-AKI, SBP, endocarditis, S. aureus bacteremia, meningitis, cholecystitis/cholangitis, SBO, diverticulitis, osteomyelitis/septic arthritis, rhabdomyolysis, sickle cell VOC, gout flare, opioid withdrawal and MOUD, refeeding syndrome, nephrolithiasis). The library is now 211 templates.

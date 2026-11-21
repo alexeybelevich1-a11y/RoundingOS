@@ -1,7 +1,8 @@
 /**
  * RoundingOS — Interactive Workup & Management DotPhrase Mental Checklist Builder
  * 100% local, zero external CDN dependencies.
- * Supports 193+ structured hospitalist templates, paired Workup/Manage/Combined A&P,
+ * Supports 211+ structured hospitalist templates, paired Workup/Manage/Combined A&P,
+ * 10 interactive branching clinical algorithms (algorithms.js),
  * 2025/2026 guideline pearls, contextual insulin/steroid calculators, Epic SmartLists,
  * inline *** wildcard quick-fills, custom phrases, and multi-problem Rounding A&P Cart.
  */
@@ -35,6 +36,19 @@ const PlanBuilder = (() => {
 
   // Custom phrase modal state
   let editingCustomId = null;
+
+  // Interactive algorithm branch selections, per patient + algorithm, so Rm 12's
+  // hyponatremia path never leaks into Rm 14's. Paused = show the static template instead.
+  const algoSelections = {};
+  const algoPaused = {};
+  function hasAlgorithms() { return typeof ClinicalAlgorithms !== 'undefined'; }
+  function algoKeyFor(phrase) { return hasAlgorithms() ? ClinicalAlgorithms.keyFor(phrase) : null; }
+  function algoScope(algoKey) { return `${hooks?.getActivePatient?.()?.id || 'none'}::${algoKey}`; }
+  function getAlgoSel(algoKey) {
+    const k = algoScope(algoKey);
+    if (!algoSelections[k]) algoSelections[k] = ClinicalAlgorithms.defaults(algoKey);
+    return algoSelections[k];
+  }
 
   function init(config) {
     hooks = config;
@@ -142,6 +156,26 @@ const PlanBuilder = (() => {
   }
 
   function getActiveModel() {
+    const model = getTemplateModel();
+    if (!model) return null;
+    const algoKey = algoKeyFor(model.base);
+    if (!algoKey) return model;
+    model.algoKey = algoKey;
+    model.algoActive = !algoPaused[algoScope(algoKey)];
+    if (!model.algoActive) return model;
+    const sel = getAlgoSel(algoKey);
+    const r = ClinicalAlgorithms.resolve(algoKey, sel, model);
+    return Object.assign(model, {
+      assessment: r.assessment || '',
+      workup: [...(r.workup || [])],
+      plan: [...(r.plan || [])],
+      redFlags: r.redFlags || '',
+      // Each branch path gets its own checklist/fills so switching branches never misaligns checkboxes
+      stateKey: `${model.stateKey}::algo:${ClinicalAlgorithms.signature(algoKey, sel)}`
+    });
+  }
+
+  function getTemplateModel() {
     const all = getAllStructuredPhrases();
     let base = all.find(p => p.id === selectedId);
     if (!base && all.length) {
@@ -565,10 +599,13 @@ const PlanBuilder = (() => {
       counts[p.category] = (counts[p.category] || 0) + 1;
     });
 
+    const algoCount = all.filter(p => algoKeyFor(p) && p.role !== 'manage').length;
     const cats = ['All'];
     if (suggestedIds.length) cats.push('Suggested');
+    if (algoCount) cats.push('Algorithms');
     const order = [
       'Top 30 Acute',
+      'Expanded Inpatient',
       'Rapid Response',
       'Chronic Conditions',
       'Daily Problems',
@@ -588,6 +625,7 @@ const PlanBuilder = (() => {
       let label = c;
       let cnt = counts[c] || 0;
       if (c === 'Suggested') { label = 'For patient'; cnt = suggestedIds.length; }
+      else if (c === 'Algorithms') { label = 'Algorithms'; cnt = algoCount; }
       else if (c === 'Starred') { label = 'Starred'; cnt = starred.size; }
       else if (c === 'Custom') { label = 'Custom'; cnt = customCount; }
       const isAct = activeCategory === c;
@@ -612,6 +650,9 @@ const PlanBuilder = (() => {
     let list = all.filter(p => {
       if (activeCategory === 'Suggested') {
         if (!suggestedIds.includes(p.id)) return false;
+      } else if (activeCategory === 'Algorithms') {
+        // One entry per algorithm: hide the Manage half of a pair
+        if (!algoKeyFor(p) || p.role === 'manage') return false;
       } else if (activeCategory === 'Starred') {
         if (!starred.has(p.id)) return false;
       } else if (activeCategory === 'Custom') {
@@ -665,13 +706,14 @@ const PlanBuilder = (() => {
           ? `<span class="pb-role-tag role-manage">Manage</span>`
           : '';
       const customTag = p.isCustom ? `<span class="pb-role-tag role-custom">Custom</span>` : '';
+      const algoTag = algoKeyFor(p) ? `<span class="pb-role-tag role-algo" title="Interactive decision algorithm">Algo</span>` : '';
 
       return `
         <div class="pb-phrase-card ${isSel ? 'selected' : ''}" data-pb-select="${hooks.esc(p.id)}">
           <div class="pb-phrase-card-top">
             <code class="pb-trig-code">${hooks.esc(formatTrigger(p.trigger))}</code>
             <div class="pb-phrase-tags">
-              ${customTag || roleTag}
+              ${customTag || algoTag || roleTag}
               <button type="button" class="pb-star-mini ${isStar ? 'starred' : ''}" data-pb-star="${hooks.esc(p.id)}" title="${isStar ? 'Unstar' : 'Star favorite'}">${isStar ? '★' : '☆'}</button>
             </div>
           </div>
@@ -684,7 +726,9 @@ const PlanBuilder = (() => {
       card.addEventListener('click', e => {
         if (e.target.closest('[data-pb-star]')) return;
         selectedId = card.dataset.pbSelect;
-        pairViewMode = 'single';
+        // Algorithms rewrite the whole A&P, so open paired algorithm templates in Combined view
+        const picked = getAllStructuredPhrases().find(x => x.id === selectedId);
+        pairViewMode = picked && algoKeyFor(picked) && picked.pairKey ? 'combined' : 'single';
         guidelineOpen = false;
         renderCatalog();
         renderBuilder();
@@ -750,6 +794,41 @@ const PlanBuilder = (() => {
     }
     html += '</div>';
     return html;
+  }
+
+  function renderAlgorithmHtml(model) {
+    if (!model.algoKey) return '';
+    const def = ClinicalAlgorithms.DEFS[model.algoKey];
+    const head = `
+      <div class="pb-algo-head">
+        <div>
+          <div class="pb-algo-title">${hooks.esc(def.title)}</div>
+          <div class="small-muted">${hooks.esc(def.subtitle || '')}</div>
+        </div>
+        <div class="pb-algo-actions">
+          ${model.algoActive ? `<button type="button" class="btn btn-xs btn-ghost" id="pbAlgoResetBtn" title="Back to default branches">Reset</button>` : ''}
+          <label class="pb-algo-toggle" title="Off = use the static template checklist">
+            <input type="checkbox" id="pbAlgoToggle" ${model.algoActive ? 'checked' : ''} /> Algorithm
+          </label>
+        </div>
+      </div>`;
+    if (!model.algoActive) {
+      return `<div class="pb-algo-box is-paused">${head}<div class="small-muted">Paused — showing the static template below.</div></div>`;
+    }
+    const sel = getAlgoSel(model.algoKey);
+    const steps = def.steps.filter(st => ClinicalAlgorithms.isStepVisible(st, sel)).map(st => {
+      const multi = st.type === 'multi';
+      const chips = st.options.map(o => {
+        const on = multi ? (sel[st.id] || []).includes(o.id) : sel[st.id] === o.id;
+        return `<button type="button" class="pb-algo-chip ${on ? 'active' : ''} ${multi ? 'is-multi' : ''}" aria-pressed="${on}"
+          data-pb-algo-step="${hooks.esc(st.id)}" data-pb-algo-opt="${hooks.esc(o.id)}" data-pb-algo-multi="${multi ? '1' : '0'}">${hooks.esc(o.label)}</button>`;
+      }).join('');
+      return `<div class="pb-algo-step">
+        <div class="pb-algo-step-label">${hooks.esc(st.label)}${multi ? ' <span class="small-muted">(any that apply)</span>' : ''}</div>
+        <div class="pb-algo-chips">${chips}</div>
+      </div>`;
+    }).join('');
+    return `<div class="pb-algo-box">${head}${steps}</div>`;
   }
 
   function renderCalculatorHtml(model) {
@@ -1444,7 +1523,10 @@ const PlanBuilder = (() => {
       `;
     }
 
-    // 3. Contextual Calculators
+    // 3. Interactive decision algorithm
+    const algoHtml = renderAlgorithmHtml(model);
+
+    // 3b. Contextual Calculators
     const calcHtml = renderCalculatorHtml(model);
 
     // 4. SmartLists (for GOC & Code Status phrases)
@@ -1547,6 +1629,7 @@ const PlanBuilder = (() => {
     bodyEl.innerHTML = `
       ${pairHtml}
       ${guideHtml}
+      ${algoHtml}
       ${calcHtml}
 
       <div class="pb-quick-toolbar">
@@ -1587,6 +1670,32 @@ const PlanBuilder = (() => {
         renderBuilder();
         renderPreview();
       });
+    });
+
+    bodyEl.querySelectorAll('[data-pb-algo-step]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sel = getAlgoSel(model.algoKey);
+        const stepId = btn.dataset.pbAlgoStep;
+        const opt = btn.dataset.pbAlgoOpt;
+        if (btn.dataset.pbAlgoMulti === '1') {
+          const cur = Array.isArray(sel[stepId]) ? sel[stepId] : [];
+          sel[stepId] = cur.includes(opt) ? cur.filter(x => x !== opt) : [...cur, opt];
+        } else {
+          sel[stepId] = opt;
+        }
+        renderBuilder();
+        renderPreview();
+      });
+    });
+    document.getElementById('pbAlgoToggle')?.addEventListener('change', e => {
+      algoPaused[algoScope(model.algoKey)] = !e.target.checked;
+      renderBuilder();
+      renderPreview();
+    });
+    document.getElementById('pbAlgoResetBtn')?.addEventListener('click', () => {
+      algoSelections[algoScope(model.algoKey)] = ClinicalAlgorithms.defaults(model.algoKey);
+      renderBuilder();
+      renderPreview();
     });
 
     document.getElementById('pbGuidelineToggleBtn')?.addEventListener('click', () => {

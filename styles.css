@@ -1443,6 +1443,67 @@ input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px;
   border-color: var(--accent);
 }
 
+/* Interactive decision algorithm (algorithms.js) */
+.pb-role-tag.role-algo {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  border: 1px solid var(--accent);
+}
+
+.pb-algo-box {
+  border: 1px solid var(--accent);
+  border-left-width: 3px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pb-algo-box.is-paused { border-color: var(--border-strong); background: var(--bg-subtle); }
+
+.pb-algo-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+.pb-algo-title { font-weight: 600; color: var(--text-primary); }
+.pb-algo-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.pb-algo-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.pb-algo-step {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 9px;
+}
+.pb-algo-step-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; }
+.pb-algo-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.pb-algo-chip {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.pb-algo-chip:hover { border-color: var(--accent); }
+.pb-algo-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pb-algo-chip.is-multi { border-radius: var(--radius-sm); }
+.pb-algo-chip.is-multi::before { content: '+ '; opacity: .6; }
+.pb-algo-chip.is-multi.active::before { content: '✓ '; opacity: 1; }
+
 /* Column 3: Live Output Preview & Rounding A&P Cart */
 .pb-col-preview {
   border-left: 1px solid var(--border);
