@@ -110,3 +110,13 @@ offline with no other files beside it.
   Labels collapse to icons below 1180px. Plan Builder's ⋯ is unchanged — different context, inside
   a modal.
 - Clicking **Quick exam** with `exambuilder.js` missing now says so instead of doing nothing.
+
+---
+
+# RoundingOS v1.1.1 — Sepia mode (2026-11-22)
+
+Changed: `index.html`, `styles.css`, `app.js`.
+
+- New **Sepia mode** in the ⋯ menu, beside Dark mode: a warm, low-glare background for panels and fields.
+- The choice is saved with your other settings. Turning Sepia off returns to Light mode.
+- Acuity colors and printouts are unchanged. The standalone `physical-exam-builder.html` preview stays in Light mode.
