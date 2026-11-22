@@ -61,3 +61,52 @@ Saved data migrates automatically: the legacy `weights` checklist key becomes `b
 - New "Algorithms" filter in the catalog. Cards with an algorithm carry an "Algo" tag and open in Combined A&P view.
 - Assessment lines show readable branch names, such as "(non-septic, low resistance risk)", not internal codes like "(std)".
 - 18 new "Expanded Inpatient" templates (metabolic acidosis, hypernatremia, pleural effusion, HRS-AKI, SBP, endocarditis, S. aureus bacteremia, meningitis, cholecystitis/cholangitis, SBO, diverticulitis, osteomyelitis/septic arthritis, rhabdomyolysis, sickle cell VOC, gout flare, opioid withdrawal and MOUD, refeeding syndrome, nephrolithiasis). The library is now 211 templates.
+
+---
+
+# RoundingOS v1.1 — Physical Exam Quick-Builder (2026-11-22)
+
+New file: `exambuilder.js`. Changed: `index.html`, `styles.css`, `app.js`.
+Also added: `physical-exam-builder.html`, a standalone single-file preview of the builder that runs
+offline with no other files beside it.
+
+## Physical Exam Quick-Builder
+- The exam field was all-or-nothing: *Insert normal exam*, or type every abnormal finding by hand.
+  A new **Quick exam** link beside it opens a builder that starts from the normal baseline and
+  replaces it as you click.
+- 8 systems — General, HEENT/Neck, Cardiovascular, Pulmonary, Abdomen, Extremities, Neurologic,
+  Skin/Wounds/Lines — with roughly 150 findings grouped by what you are actually examining
+  (rate & rhythm, murmur grade/timing/location, breath sounds, work of breathing, tenderness by
+  quadrant, edema grade/side/extent, peritoneal signs, lines and drains).
+- **Auto-exclusion.** Clicking an abnormal finding clears the normal text it contradicts, in both
+  directions: `2+ pitting edema` clears *no peripheral edema*, and clicking *CTAB* back on clears
+  the crackles. Mutually exclusive grades replace each other rather than stacking.
+- **Composed phrases.** Murmur and edema parts are assembled into one readable finding —
+  `grade 3/6 systolic murmur at the RUSB`, `bilateral 2+ pitting edema to the knees` — instead of
+  comma-joined fragments.
+- Per-system and global free-text boxes, multi-line or compact output, and the generated exam is
+  editable before it is inserted.
+- Nothing is written to the chart until **Insert into Physical Exam** is pressed (keeps C1). If the
+  note has hand edits you get the same *Rebuild from chart* warning the Plan Builder gives.
+
+## Condition presets
+- 31 one-click presets across Cardiac, Pulmonary, GI/Liver, Infectious, Neurologic, Renal/Endo and
+  Other: ADHF, ACS/NSTEMI, AFib with RVR, endocarditis, COPD, asthma, CAP, aspiration, PE, pleural
+  effusion, cirrhosis/ascites, hepatic encephalopathy, upper GI bleed, pancreatitis, SBO/ileus,
+  cholecystitis, sepsis, UTI/pyelonephritis, cellulitis, diabetic foot infection, meningitis,
+  delirium, stroke, alcohol withdrawal, post-ictal, AKI/hypovolemia, DKA/HHS, symptomatic anemia,
+  comfort care and pressure injury.
+- Presets are applied as clicks on top of the normal baseline, so the same auto-exclusion rules run
+  and a preset cannot leave a contradictory pair behind.
+- **Searchable.** Type to filter by name or alias — `chf` finds ADHF, `etoh` alcohol withdrawal,
+  `afib` atrial fibrillation, `ams` delirium. Arrow keys move, Enter applies, "Browse all 31" lists
+  everything grouped by category. An *Applied:* label shows which preset is in effect and clears as
+  soon as you change a chip by hand.
+
+## Interface
+- **The duplicate ⋯ menus are gone.** The note pane and the patient detail pane each had a bare
+  three-dot button within a few pixels of the app header's, with nothing to tell them apart. They
+  are now labeled **Note options** and **Actions**, and the app header keeps the only ⋯ in the app.
+  Labels collapse to icons below 1180px. Plan Builder's ⋯ is unchanged — different context, inside
+  a modal.
+- Clicking **Quick exam** with `exambuilder.js` missing now says so instead of doing nothing.

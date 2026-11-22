@@ -14,4 +14,8 @@ All patient data stays on the device: in browser storage, plus `data/` when star
 **`data/` and backup files are git-ignored. Never commit patient data.**
 The sample patients in `data.js` are fictional test data.
 
+Fast abnormal physical exam documentation: **Quick exam** beside the exam field opens the Physical Exam
+Quick-Builder — 8 systems, ~150 findings, 31 condition presets with search. `physical-exam-builder.html`
+is a standalone preview that runs on its own.
+
 See `CHANGES.md` for the latest changes.
