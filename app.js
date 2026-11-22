@@ -312,6 +312,7 @@
     setMenuCheck('togglePatientPaneBtn', !ui.patientPaneCollapsed);
     setMenuCheck('toggleRightPaneBtn', !ui.rightPaneCollapsed);
     setMenuCheck('themeToggleBtn', state.theme === 'dark');
+    setMenuCheck('sepiaToggleBtn', state.theme === 'sepia');
 
     // Note field groups: one open at a time (all open when the note has the full width)
     document.querySelectorAll('[data-note-group]').forEach(g => {
@@ -331,6 +332,7 @@
     state.theme = theme;
     document.documentElement.setAttribute('data-theme', theme);
     setMenuCheck('themeToggleBtn', theme === 'dark');
+    setMenuCheck('sepiaToggleBtn', theme === 'sepia');
   }
 
   /* ========================================================================
@@ -2044,6 +2046,11 @@
 
   $('themeToggleBtn').addEventListener('click', () => {
     applyTheme(state.theme === 'dark' ? 'light' : 'dark');
+    saveState();
+  });
+
+  $('sepiaToggleBtn').addEventListener('click', () => {
+    applyTheme(state.theme === 'sepia' ? 'light' : 'sepia');
     saveState();
   });
 

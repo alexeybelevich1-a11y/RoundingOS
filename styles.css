@@ -82,6 +82,23 @@
   --shadow-lg: 0 24px 48px rgba(0, 0, 0, 0.6);
 }
 
+/* Sepia: warm, low-glare light theme. Acuity colors stay the same as light mode. */
+[data-theme="sepia"] {
+  --bg-app: #eee4cf;
+  --bg-surface: #faf3e1;
+  --bg-subtle: #f5ecd8;
+  --bg-hover: #ece1c9;
+  --bg-selected: #e2e8d3;
+  --border: #e0d5bc;
+  --border-strong: #c9bb9c;
+
+  --text-primary: #2a2318;
+  --text-secondary: #4f4535;
+  --text-muted: #635846;
+
+  --accent-soft: #e2ead6;
+}
+
 * { box-sizing: border-box; }
 
 html, body {
