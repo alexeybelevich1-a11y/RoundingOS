@@ -1931,7 +1931,10 @@
   });
 
   $('openExamBuilderBtn')?.addEventListener('click', () => {
-    if (typeof ExamBuilder === 'undefined') return;
+    if (typeof ExamBuilder === 'undefined') {
+      showToast('exambuilder.js is not loaded — copy it next to index.html', 'error');
+      return;
+    }
     if (!getSelectedPatient()) { showToast('Select a patient first', 'error'); return; }
     ExamBuilder.open();
   });
