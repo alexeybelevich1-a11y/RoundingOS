@@ -592,8 +592,9 @@
               </div>
             </div>
             <div class="dropdown-wrap" id="ptActionsWrap">
-              <button type="button" class="icon-btn" id="ptActionsBtn" aria-label="Patient actions" title="Patient actions">
-                <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+              <button type="button" class="btn btn-xs btn-secondary note-opts-btn" id="ptActionsBtn" aria-expanded="false" aria-haspopup="true" aria-label="Patient actions" title="Edit, handoff, discharge and more for this patient">
+                <span>Actions</span>
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
               <div class="dropdown-menu hidden" id="ptActionsMenu">
                 <button type="button" class="dropdown-item" id="editPatientBtn">Edit patient</button>
