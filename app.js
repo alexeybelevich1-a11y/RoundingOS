@@ -1930,6 +1930,12 @@
     showToast('Normal exam inserted — edit any abnormal findings');
   });
 
+  $('openExamBuilderBtn')?.addEventListener('click', () => {
+    if (typeof ExamBuilder === 'undefined') return;
+    if (!getSelectedPatient()) { showToast('Select a patient first', 'error'); return; }
+    ExamBuilder.open();
+  });
+
   $('rdBmTodayBtn').addEventListener('click', () => {
     const p = getSelectedPatient();
     if (!p) return;
@@ -2198,6 +2204,25 @@
      Engines
      ======================================================================== */
   if (typeof PlanBuilder !== 'undefined') {
+    if (typeof ExamBuilder !== 'undefined') {
+      ExamBuilder.init({
+        getActivePatient: () => getSelectedPatient(),
+        showToast: (msg, variant) => showToast(msg, variant),
+        onApply: examText => {
+          const p = getSelectedPatient();
+          if (!p) { showToast('Select a patient first', 'error'); return; }
+          p.physicalExam = examText;
+          touch(p);
+          saveState();
+          renderRightDock();
+          showToast(`Physical exam updated for Rm ${p.room}`);
+          if (typeof p.noteDraft === 'string') {
+            showToast('The note has hand edits — use "Rebuild from chart" to pull the new exam in.', 'info');
+          }
+        }
+      });
+    }
+
     PlanBuilder.init({
       getState: () => state,
       saveState: () => saveState(),

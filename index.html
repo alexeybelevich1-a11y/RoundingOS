@@ -133,7 +133,7 @@
                 <textarea id="rdSubjective" rows="3" data-mic placeholder="Overnight events, symptoms…"></textarea>
               </div>
               <div class="field">
-                <div class="field-head"><label for="rdExam">Physical exam</label><button type="button" class="link-btn" id="rdNormalExamBtn">Insert normal exam</button></div>
+                <div class="field-head"><label for="rdExam">Physical exam</label><span class="field-head-actions"><button type="button" class="link-btn" id="openExamBuilderBtn">Quick exam</button><button type="button" class="link-btn" id="rdNormalExamBtn">Insert normal exam</button></span></div>
                 <textarea id="rdExam" rows="4" data-mic placeholder="Not documented until you enter it"></textarea>
               </div>
             </div>
@@ -576,12 +576,60 @@
     </div>
   </div>
 
+  <!-- Modal: Physical Exam Quick-Builder -->
+  <div class="modal-backdrop hidden" id="examBuilderModal" role="dialog" aria-modal="true" aria-labelledby="examBuilderTitle">
+    <div class="modal modal-planbuilder">
+      <div class="modal-header">
+        <div>
+          <h2 id="examBuilderTitle">Physical Exam Quick-Builder</h2>
+          <div class="small-muted" id="peModalPatientHint">Click findings to build the exam</div>
+        </div>
+        <div class="pe-header-right">
+          <button type="button" class="btn btn-xs btn-secondary" id="peResetAllNormBtn">All normal</button>
+          <button type="button" class="btn btn-xs btn-ghost" id="peClearAllBtn">Clear</button>
+          <button type="button" class="btn-close" data-close-modal="examBuilderModal" aria-label="Close">&times;</button>
+        </div>
+      </div>
+
+      <div class="pe-presets-bar" id="pePresetsBar"></div>
+
+      <div class="pe-main">
+        <section class="pe-systems-col" id="peSystemsGrid"></section>
+
+        <aside class="pe-preview-col">
+          <div class="pe-preview-head">
+            <strong>Live physical exam</strong>
+            <span class="pe-count" id="peAbnormalCount"></span>
+            <div class="segmented-control" id="peFormatTabs">
+              <button type="button" class="seg-btn active" data-fmt="multiline">Multi-line</button>
+              <button type="button" class="seg-btn" data-fmt="compact">Compact</button>
+            </div>
+          </div>
+
+          <textarea id="peOutputText" class="pe-output-ta" spellcheck="false"></textarea>
+          <div class="pe-edited-warn hidden" id="peEditedWarn">Hand-edited — chip changes will no longer rewrite this box.</div>
+
+          <div>
+            <label for="peGlobalManual" class="small-muted pe-manual-label">Additional manual findings</label>
+            <textarea id="peGlobalManual" rows="2" placeholder="e.g. R medial malleolus 2×2 cm ulcer, clean base…"></textarea>
+          </div>
+
+          <div class="pe-actions">
+            <button type="button" class="btn btn-sm btn-secondary" id="peCopyBtn">Copy</button>
+            <button type="button" class="btn btn-sm btn-primary" id="peApplyToPatientBtn">Insert into Physical Exam</button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
   <div id="printArea" class="print-only"></div>
 
   <script src="data.js"></script>
   <script src="crypto.js"></script>
   <script src="dotphrases.js"></script>
   <script src="progressnote.js"></script>
+  <script src="exambuilder.js"></script>
   <script src="algorithms.js"></script>
   <script src="planbuilder.js"></script>
   <script src="reminders.js"></script>
