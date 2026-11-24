@@ -1,6 +1,6 @@
 # Architecture
 
-RoundingOS is a static web app: plain HTML, CSS and JavaScript, no framework, no dependencies, no build step.
+RoundingOS is a static web app: plain HTML, CSS and JavaScript, no framework, no runtime dependencies, no build step (pnpm is dev tooling only: `pnpm dev`, `pnpm test`).
 Everything runs in the browser and all patient data stays on the device.
 
 ## Current structure (`main`)

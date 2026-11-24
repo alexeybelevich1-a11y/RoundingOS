@@ -6,7 +6,9 @@ The roadmap is [`docs/plan.md`](docs/plan.md). These rules apply to every change
 ## Stack
 
 - Plain JavaScript loaded with `<script>` tags, following the existing IIFE-global module pattern.
-- No React, Vue, Tailwind, TypeScript, npm packages, bundlers or any build step.
+- No React, Vue, Tailwind, TypeScript, runtime npm packages, bundlers or any build step.
+- `package.json` (pnpm) holds dev tooling only: `pnpm dev` and `pnpm test`. Never add a runtime dependency
+  or make the app need `node_modules/`; GitHub Pages serves the repo files as they are.
 - New libraries only when the plan calls for them, copied into `vendor/` with the version in `vendor/VERSIONS.md`. Never load from a CDN.
 - Keep `app.js`'s in-memory `state` and the synchronous `saveState()` contract; do not rewrite the controller.
 
@@ -33,7 +35,7 @@ The roadmap is [`docs/plan.md`](docs/plan.md). These rules apply to every change
 
 ## Before opening a PR
 
-- Run `tests/index.html` (once it exists) and confirm all tests pass; report the result in the PR.
-- Load the app, click through the screens you touched with the console open, and fix any errors.
+- Run `pnpm test` and confirm all tests pass; report the result in the PR.
+- Load the app with `pnpm dev`, click through the screens you touched with the console open, and fix any errors.
 - If you added or renamed an app file, update `index.html` and `APP_FILES` in `sw.js`, and bump `CACHE_VERSION`.
 - Keep the change small and focused on one task. Note user-visible changes in `CHANGES.md`.

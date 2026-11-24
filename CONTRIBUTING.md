@@ -1,26 +1,32 @@
 # Contributing
 
-RoundingOS is plain HTML/CSS/JavaScript with no build step and no dependencies.
+RoundingOS is plain HTML/CSS/JavaScript with no build step and no runtime dependencies.
+pnpm is used for dev tooling only (a local server and the headless test run).
 Read [`docs/architecture.md`](docs/architecture.md) for how the code fits together and
 [`docs/plan.md`](docs/plan.md) for where it is going. AI coding agents also follow [`AGENTS.md`](AGENTS.md).
 
 ## Run locally
 
-Serve the folder over http from any static server, then open the printed address:
+Needs Node 20+ and pnpm (run `corepack enable` once to get the version pinned in `package.json`).
 
 ```sh
-python3 -m http.server 8000      # or: npx serve .
+pnpm install                          # once
+pnpm exec playwright install chromium # once: the browser the tests run in
+pnpm dev                              # http://localhost:8000/  (pnpm dev --port 9000 for another port)
 ```
 
 Opening `index.html` directly (`file://`) mostly works, but the microphone and the service worker need http(s).
-On Windows, `Start-Hospitalist-Tracker.bat` still works until the PWA work retires it.
 Use the menu item **Test data → Add 14 test patients** for sample data.
 
 ## Tests
 
-Once `tests/index.html` exists (added with the PWA and calculator work), open it from the local server.
-All tests must be green before you open a pull request. Until then, click through the screens you changed
-with the browser console open and check for errors.
+```sh
+pnpm test    # runs tests/index.html in headless Chromium; exits non-zero if any test fails
+```
+
+To watch them in a browser, open `http://localhost:8000/tests/index.html` while `pnpm dev` runs.
+All tests must be green before you open a pull request; GitHub Actions runs `pnpm test` on every pull request.
+Also click through the screens you changed with the browser console open and check for errors.
 
 ## Branches and pull requests
 
