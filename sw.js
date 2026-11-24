@@ -7,7 +7,7 @@
  * This file caches app code only. Patient data lives in the on-device database
  * (IndexedDB, see src/core/store.js) and is never cached here or sent anywhere.
  */
-const CACHE_VERSION = 'roundingos-v1.6.0';
+const CACHE_VERSION = 'roundingos-v1.6.1';
 
 const APP_FILES = [
   './',
@@ -72,12 +72,12 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.includes('/api/')) return; // old local-server sync: always live
 
-  // Page loads (including ?query or #hash) get the cached app shell
+  // Page loads (including ?query or #hash) get the cached page. A page that isn't cached
+  // (such as labs/voice-bench.html) loads from the network; the app shell is only the offline fallback.
   if (req.mode === 'navigate') {
     event.respondWith(
       caches.match(req, { ignoreSearch: true })
-        .then(hit => hit || caches.match('index.html'))
-        .then(hit => hit || fetch(req))
+        .then(hit => hit || fetch(req).catch(() => caches.match('index.html')))
     );
     return;
   }
