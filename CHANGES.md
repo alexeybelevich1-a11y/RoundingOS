@@ -120,3 +120,19 @@ Changed: `index.html`, `styles.css`, `app.js`.
 - New **Sepia mode** in the ⋯ menu, beside Dark mode: a warm, low-glare background for panels and fields.
 - The choice is saved with your other settings. Turning Sepia off returns to Light mode.
 - Acuity colors and printouts are unchanged. The standalone `physical-exam-builder.html` preview stays in Light mode.
+
+---
+
+# RoundingOS v1.2 — Installable app, works offline (2026-11-24)
+
+New: `manifest.json`, `sw.js`, `pwa.js`, `icons/`. Changed: `index.html`, `physical-exam-builder.html`, `README.md`.
+
+- **Install as an app** on Android, laptop (Chrome/Edge) and iPhone. ⋯ menu → **Install app…** opens Chrome's
+  install prompt where the browser offers one; otherwise it shows short steps for Android, laptop and iPhone.
+- **Works offline.** A service worker keeps a copy of every app file, so the installed app opens in airplane mode.
+- **Updates never interrupt you.** A new version downloads in the background; a toast and a menu item say
+  **Update available**, and the app reloads only when you tap Reload.
+- **Content-Security-Policy:** the browser blocks scripts from anywhere but the app itself and blocks any
+  network request off the app's own address.
+- `physical-exam-builder.html` now loads `exambuilder.js` instead of carrying its own copy, so there is one source.
+- Storage is unchanged and still **unencrypted**: test patients only until encrypted storage lands.
