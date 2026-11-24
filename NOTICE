@@ -1,0 +1,12 @@
+RoundingOS
+Copyright 2026 Alexey Belevich and RoundingOS contributors
+
+RoundingOS is licensed under the GNU Affero General Public License, version 3
+only (AGPL-3.0-only). See LICENSE.
+
+Third-party software included in this repository keeps its own license:
+
+  Dexie.js 4.4.7 (vendor/dexie/)
+  Copyright (c) 2014-2017 David Fahlander
+  Licensed under the Apache License, Version 2.0.
+  See vendor/dexie/LICENSE and vendor/dexie/NOTICE.

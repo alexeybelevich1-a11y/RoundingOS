@@ -87,3 +87,20 @@ Quick-Builder — 8 systems, ~150 findings, 31 condition presets with search. `p
 is a standalone preview of it.
 
 See `CHANGES.md` for the latest changes.
+
+## Medical disclaimer
+RoundingOS is a note-taking and organizing aid for clinicians. It is **not a medical device** and is not
+cleared or approved by any regulator. It does not replace clinical judgment. Verify every calculator
+result, score and threshold against the original source before acting on it. The software is provided
+"as is", without warranty of any kind (see sections 15 and 16 of the license).
+
+Until on-device encryption ships, data is stored unencrypted in the browser: **use test data only.**
+
+## License
+Copyright 2026 Alexey Belevich and RoundingOS contributors.
+
+Licensed under the [GNU Affero General Public License v3.0 only](LICENSE) (AGPL-3.0-only).
+In short: you may use, change and share RoundingOS, but if you distribute it, or run a changed version
+for other people over a network, you must make your source code available under the same license.
+See [NOTICE](NOTICE) for attribution. Third-party code in `vendor/` keeps its own license
+(Dexie.js is Apache-2.0); see [vendor/VERSIONS.md](vendor/VERSIONS.md).
