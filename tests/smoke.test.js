@@ -23,6 +23,32 @@ test('"Add 14 test patients" still works', async () => {
   } finally { app.restore(); app.frame.remove(); }
 });
 
+test('opening with ?demo=1 loads the 14 test patients into an empty census', async () => {
+  const app = await loadApp(null, { query: '&demo=1' });
+  try {
+    const saved = await waitFor(async () => {
+      const s = await readAppDb();
+      return s && s.patients.length === 14 && s;
+    }, 4000, '14 saved patients');
+    assertEqual(saved.patients.length, 14, 'patients after ?demo=1');
+    assert(!app.win.location.search.includes('demo'), 'demo flag removed from the address');
+    assert(app.win.location.search.includes('testdb=1'), 'other flags kept');
+  } finally { app.restore(); app.frame.remove(); }
+});
+
+test('?demo=1 leaves a census that already has patients alone', async () => {
+  const mine = { ...getInitialTestPatients()[0], id: 'demo-check-1', mrn: 'FAKE-1', isTest: false };
+  await Dexie.delete(APP_TEST_DB);
+  await withStore(APP_TEST_DB, s => s.save({ ...getDefaultAppState(), patients: [mine], selectedPatientId: mine.id }));
+  const app = await loadApp(null, { keepDb: true, query: '&demo=1' });
+  try {
+    await new Promise(r => setTimeout(r, 500));
+    const saved = await readAppDb();
+    assertEqual(saved.patients.length, 1, 'existing census untouched');
+    assertEqual(saved.patients[0].id, 'demo-check-1', 'same patient');
+  } finally { app.restore(); app.frame.remove(); }
+});
+
 test('voice does not start until the notice is accepted', async () => {
   const app = await loadApp(null);
   try {

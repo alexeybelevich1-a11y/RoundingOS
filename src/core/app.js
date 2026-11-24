@@ -334,6 +334,7 @@
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') applyRetention().catch(() => {});
     });
+    loadDemoIfRequested();
     document.documentElement.dataset.storeReady = storageMode;
     if (typeof ReminderEngine !== 'undefined') ReminderEngine.onStateLoaded();
   }
@@ -532,6 +533,17 @@
     saveState();
     renderAll();
     showToast(`Added ${toAdd.length} test patients`);
+  }
+
+  /** Opening the app with ?demo=1 loads the 14 test patients, but only into an empty census.
+      The flag is then dropped from the address bar, so a reload or a later install starts normally. */
+  function loadDemoIfRequested() {
+    const params = new URLSearchParams(location.search);
+    if (params.get('demo') !== '1') return;
+    if (state.patients.length === 0) addTestPatients();
+    params.delete('demo');
+    const query = params.toString();
+    try { history.replaceState(null, '', location.pathname + (query ? `?${query}` : '') + location.hash); } catch (e) { /* ignore */ }
   }
 
   function removeTestPatients() {

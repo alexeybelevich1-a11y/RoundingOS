@@ -6,6 +6,9 @@ Changed: `index.html`, `styles.css`, `app.js`, `data.js`, `progressnote.js`, `pl
 Saved data migrates automatically: the legacy `weights` checklist key becomes `bm`, and the UI state is reset to the new layout once.
 
 
+## Test data link
+- Opening the app with `?demo=1` (for example `…/RoundingOS/?demo=1`) loads the 14 test patients when the census is empty. A census with patients is never changed. The flag is then removed from the address, so a reload starts normally (cache v1.6.2).
+
 ## On-device voice, beta (phase 5, step 1)
 - New test page `labs/voice-bench.html` (not part of the app): measures Vosk commands and Whisper/Moonshine dictation on this device. The app itself is unchanged.
 - Vendored vosk-browser 0.0.8 (patched to run under the app's Content-Security-Policy) and transformers.js 3.8.1.

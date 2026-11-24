@@ -16,7 +16,7 @@ pnpm dev                              # http://localhost:8000/  (pnpm dev --port
 ```
 
 Opening `index.html` directly (`file://`) mostly works, but the microphone and the service worker need http(s).
-Use the menu item **Test data → Add 14 test patients** for sample data.
+Use the menu item **Test data → Add 14 test patients** for sample data, or open `http://localhost:8000/?demo=1`, which loads them automatically when the census is empty.
 
 ## Tests
 

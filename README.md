@@ -17,6 +17,7 @@ RoundingOS is a Progressive Web App served as static files from GitHub Pages:
 - **iPhone (Safari):** **Share → Add to Home Screen**. Safari has no install prompt, so the menu item shows these steps.
 
 A fresh install starts with an **empty census**. ⋯ → **Add 14 test patients** loads the sample patients.
+Or open the app with `?demo=1` at the end of the address (for example `https://alexeybelevich1-a11y.github.io/RoundingOS/?demo=1` or `http://localhost:8000/?demo=1`): if the census is empty, the 14 test patients load automatically. A census that already has patients is left as it is.
 
 ## Where data lives
 - Only on the device, in the installed app's on-device database (IndexedDB, one record per patient; see
