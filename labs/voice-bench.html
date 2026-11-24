@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Test page only (not part of the app). The model hosts below are the only places it may download from;
+       audio is never sent anywhere. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self'; img-src 'self' data:; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co https://ccoreilly.github.io; object-src 'none'; base-uri 'self'; form-action 'none'" />
+  <title>RoundingOS voice test (Beta)</title>
+  <link rel="stylesheet" href="voice-bench.css" />
+</head>
+<body>
+  <header>
+    <h1>On-device voice test <span class="beta">Beta</span></h1>
+    <p>Checks whether speech recognition can run on this device, with no audio leaving it. Use made-up phrases only, never real patient details.
+       Models download once (sizes below) and are then kept by the browser, so the second run works offline.</p>
+  </header>
+
+  <section>
+    <h2>This device</h2>
+    <pre id="deviceInfo">…</pre>
+  </section>
+
+  <section>
+    <h2>1 · Voice commands (Vosk, ~40 MB)</h2>
+    <label>Model file (.tar.gz)
+      <input id="voskUrl" type="url" value="https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz" />
+    </label>
+    <label class="small">…or pick a downloaded model file <input id="voskFile" type="file" accept=".tar.gz,.tgz,application/gzip" /></label>
+    <label class="check"><input id="voskGrammar" type="checkbox" checked /> Use the RoundingOS command vocabulary (closed grammar)</label>
+    <div class="row">
+      <button id="voskLoad">Load command model</button>
+      <span id="voskStatus" class="status">Not loaded</span>
+    </div>
+    <p class="hint">Say one of these, then tap Stop (or just pause):</p>
+    <ul class="phrases">
+      <li>set room 12 dispo to SNF</li>
+      <li>select room 1204</li>
+      <li>set dispo SNF</li>
+      <li>mark labs reviewed</li>
+      <li>next patient</li>
+      <li>remind me in 2 hours check potassium</li>
+    </ul>
+    <div class="row">
+      <button id="voskStart" disabled>Start listening</button>
+      <button id="voskStop" disabled>Stop</button>
+      <meter id="voskLevel" min="0" max="0.2" value="0"></meter>
+    </div>
+    <dl class="out">
+      <dt>Hearing</dt><dd id="voskPartial">–</dd>
+      <dt>Heard</dt><dd id="voskFinal">–</dd>
+      <dt>As command text</dt><dd id="voskNorm">–</dd>
+      <dt>App reads it as</dt><dd id="voskParsed">–</dd>
+      <dt>Delay</dt><dd id="voskLatency">–</dd>
+    </dl>
+  </section>
+
+  <section>
+    <h2>2 · Dictation (Whisper or Moonshine)</h2>
+    <div class="grid">
+      <label>Model
+        <select id="asrModel">
+          <option value="Xenova/whisper-base.en">Whisper base.en (laptop, ~80 MB at q8)</option>
+          <option value="Xenova/whisper-small.en">Whisper small.en (laptop, ~250 MB at q8)</option>
+          <option value="onnx-community/moonshine-base-ONNX">Moonshine base (phone, ~65 MB at q8)</option>
+          <option value="onnx-community/moonshine-tiny-ONNX">Moonshine tiny (phone, ~30 MB at q8)</option>
+        </select>
+      </label>
+      <label>Runs on
+        <select id="asrDevice">
+          <option value="wasm">CPU (WebAssembly)</option>
+          <option value="webgpu">GPU (WebGPU)</option>
+        </select>
+      </label>
+      <label>Precision
+        <select id="asrDtype">
+          <option value="q8">q8 (smaller, CPU)</option>
+          <option value="fp32">fp32 (GPU)</option>
+          <option value="fp16">fp16 (GPU)</option>
+          <option value="q4">q4</option>
+        </select>
+      </label>
+    </div>
+    <div class="row">
+      <button id="asrLoad">Load dictation model</button>
+      <span id="asrStatus" class="status">Not loaded</span>
+    </div>
+    <progress id="asrProgress" max="1" value="0" class="hidden"></progress>
+
+    <h3>a) Short command</h3>
+    <p class="hint">Tap Record, say “set room 12 dispo to SNF”, tap Stop.</p>
+    <div class="row">
+      <button id="cmdRec" disabled>Record</button>
+      <button id="cmdStop" disabled>Stop</button>
+      <meter id="cmdLevel" min="0" max="0.2" value="0"></meter>
+    </div>
+    <dl class="out">
+      <dt>Heard</dt><dd id="cmdText">–</dd>
+      <dt>App reads it as</dt><dd id="cmdParsed">–</dd>
+      <dt>Delay</dt><dd id="cmdLatency">–</dd>
+    </dl>
+
+    <h3>b) 30-second dictation</h3>
+    <p class="hint">Tap Record and read a made-up progress note for 30 seconds. It stops by itself. For example:
+      “Seventy two year old with CHF exacerbation, diuresed three liters overnight, creatinine stable at one point four, potassium three point six, plan to repeat BMP in the morning and transition to oral furosemide…”</p>
+    <div class="row">
+      <button id="dicRec" disabled>Record 30 s</button>
+      <button id="dicStop" disabled>Stop early</button>
+      <span id="dicTimer" class="status"></span>
+      <meter id="dicLevel" min="0" max="0.2" value="0"></meter>
+    </div>
+    <label class="small">…or transcribe an audio file instead <input id="dicFile" type="file" accept="audio/*" disabled /></label>
+    <dl class="out">
+      <dt>Text (after RoundingOS clean-up)</dt><dd id="dicText">–</dd>
+      <dt>Time to transcribe</dt><dd id="dicLatency">–</dd>
+    </dl>
+  </section>
+
+  <section>
+    <h2>Results</h2>
+    <p class="hint">Copy this and paste it in the project thread.</p>
+    <pre id="report"></pre>
+    <div class="row"><button id="copyReport">Copy results</button> <span id="copyStatus" class="status"></span></div>
+  </section>
+
+  <script src="../src/speech/speech.js"></script>
+  <script src="../src/speech/voice-grammar.js"></script>
+  <script src="../src/speech/voice-audio.js"></script>
+  <script src="../vendor/vosk-browser/vosk.js"></script>
+  <script src="voice-bench.js"></script>
+</body>
+</html>

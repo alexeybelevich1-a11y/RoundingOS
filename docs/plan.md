@@ -296,6 +296,12 @@ Manual, on both devices:
 
 **Goal:** dictation and voice commands work with no audio leaving the device. Cloud speech is only an explicit opt-in.
 
+**Ships as Beta (Anton, 2026-11-24).** The setting reads **On-device (Beta)**, a small Beta badge sits by the mic while on-device voice is active, a one-time note says it is experimental, and a feature flag can hide the option entirely.
+
+**Step 1, the test page (done first):** `labs/voice-bench.html` measures Vosk command delay and Whisper/Moonshine dictation speed on the actual phone and laptop before the app integration starts. Vendored: vosk-browser 0.0.8 (patched so it runs without `'unsafe-eval'`) and transformers.js 3.8.1 with its ONNX runtime files. Shared pieces already live in `src/speech/`: `voice-grammar.js` (command vocabulary + number-word clean-up), `voice-audio.js` (16 kHz mic capture), `voice-worker.js` (Whisper/Moonshine in a module worker).
+
+Note: `parseVoiceCommand` has no "set room 12 dispo to SNF" form today, and rooms must be 3–4 digits to select. `VoiceGrammar.splitRoomPrefix` turns it into "select room 12" + "set dispo SNF"; the app integration (step 2) wires that up.
+
 | File | Change |
 |---|---|
 | `voice.js` | **New adapter.** `Voice.start({ mode: 'command' \| 'dictation', onPartial, onFinal, onError })`, `Voice.stop()`, `Voice.status()`, `Voice.setEngine(name)`. |

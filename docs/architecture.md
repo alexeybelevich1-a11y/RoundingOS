@@ -16,7 +16,9 @@ src/
   clinical/   calc.js (calculators)  algorithms.js  dotphrases.js (templates)
   features/   planbuilder.js  progressnote.js  exambuilder.js  physical-exam-builder.js  reminders.js  signout.js
   speech/     speech.js (dictation clean-up, voice commands)
-vendor/       dexie/ (Dexie 4.4.7)  VERSIONS.md
+              voice-grammar.js  voice-audio.js  voice-capture-worklet.js  voice-worker.js   (on-device voice, beta)
+vendor/       dexie/ (Dexie 4.4.7)  vosk-browser/ (0.0.8, patched)  transformers/ (3.8.1)  VERSIONS.md
+labs/         voice-bench.html  (on-device voice test page; not loaded by the app)
 tests/        index.html  harness.js  *.test.js  ui-baseline/
 scripts/      serve.mjs (pnpm dev)  test.mjs (pnpm test)
 docs/         architecture.md  plan.md
