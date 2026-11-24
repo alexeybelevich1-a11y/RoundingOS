@@ -12,7 +12,7 @@ manifest.json  sw.js        PWA manifest and service worker (must stay at the ro
 styles/styles.css           all styles (light, dark, sepia)
 icons/                      app icons
 src/
-  core/       app.js (controller, loads last)  data.js  crypto.js  store.js  transfer.js  pwa.js
+  core/       app.js (controller, loads last)  data.js  crypto.js  store.js  retention.js  transfer.js  pwa.js
   clinical/   calc.js (calculators)  algorithms.js  dotphrases.js (templates)
   features/   planbuilder.js  progressnote.js  exambuilder.js  physical-exam-builder.js  reminders.js  signout.js
   speech/     speech.js (dictation clean-up, voice commands)
@@ -35,6 +35,7 @@ and `tests/index.html` are relative to the repo root, which GitHub Pages serves 
 | `src/core/data.js` | `CHECKLIST_DEFINITIONS`, `getDefaultAppState()`, `getInitialTestPatients()` | Data schema, defaults, 14 fictional test patients |
 | `src/core/crypto.js` | `BackupCrypto` | AES-256-GCM + PBKDF2 for the encrypted export/import file (`.rnos`) |
 | `src/core/store.js` | `Store` | The on-device database: the only code that reads or writes saved data |
+| `src/core/retention.js` | `Retention` | Discharged patients: when they move to the archive and when they are deleted (pure functions) |
 | `src/core/transfer.js` | `Transfer` | Export payload and the merging import (pure functions) |
 | `src/clinical/dotphrases.js` | dot-phrase data | Note templates |
 | `src/features/progressnote.js` | `ProgressNoteEngine` | Builds the live progress note |
@@ -79,6 +80,10 @@ and `app.js` stays last. There are no imports or bundling.
 - Database `roundingos` (tests use `roundingos-test` via `index.html?testdb=1`): `meta`, `patients` (id, purgeAfter),
   `settings`, `snapshots`, `tombstones`. Each record sits in a `payload` tagged `{ fmt: 'plain' }`; phase 4
   adds an encrypted format in `encodeRecord`/`decodeRecord` without a schema change.
+- Discharged patients (`dischargedAt`, `archivedAt` on the patient) are hidden from the census, sign-out and
+  rollover once archived, and deleted after the window in `state.retention` (defaults: archive right away, delete
+  after 30 days), from the database and from snapshots. Settings & backup → Saved copies lists, restores and
+  deletes snapshots.
 - Voice: `app.js` calls `SpeechEngine` (`toggleDictation`, `startCommandMode`, `parseVoiceCommand`, ...),
   which uses the browser's cloud Web Speech API today.
 

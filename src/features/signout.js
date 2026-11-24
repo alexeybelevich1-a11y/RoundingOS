@@ -4,6 +4,9 @@
  */
 
 const SignOutEngine = (() => {
+  // Archived (discharged) patients are off the census and never go into a handoff
+  const isOnCensus = p => typeof Retention === 'undefined' || Retention.isActive(p);
+
   function sortForHandoff(patients, sortBy = 'priority') {
     const copy = [...patients];
     if (sortBy === 'room') {
@@ -145,7 +148,7 @@ const SignOutEngine = (() => {
       ...options
     };
 
-    let list = [...state.patients];
+    let list = state.patients.filter(isOnCensus);
     if (opts.mode === 'single') {
       list = list.filter(p => p.id === opts.patientId);
     } else if (opts.onlySickAndWatcher) {
@@ -209,7 +212,7 @@ const SignOutEngine = (() => {
       ...options
     };
 
-    let list = [...state.patients];
+    let list = state.patients.filter(isOnCensus);
     if (opts.mode === 'single') {
       list = list.filter(p => p.id === opts.patientId);
     } else if (opts.onlySickAndWatcher) {
@@ -276,7 +279,7 @@ const SignOutEngine = (() => {
       ...options
     };
 
-    let list = [...state.patients];
+    let list = state.patients.filter(isOnCensus);
     if (opts.mode === 'single') {
       list = list.filter(p => p.id === opts.patientId);
     } else if (opts.onlySickAndWatcher) {

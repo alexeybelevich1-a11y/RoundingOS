@@ -181,3 +181,18 @@ Changed: `src/core/app.js` (save/load only), `index.html`, `sw.js` (`CACHE_VERSI
 - A copy of the data is also kept before "Clear census", before loading test patients, and once a day (last 7).
 - Two open tabs still stay in step (BroadcastChannel instead of the `storage` event).
 - Still **not encrypted**: the "test data only" banner and badge stay until phase 4.
+
+# RoundingOS v1.6 — Discharge archive and saved copies (2026-11-24)
+
+New: `src/core/retention.js`, `tests/retention.test.js`, `tests/snapshots.test.js`.
+Changed: `src/core/app.js`, `src/core/store.js`, `src/features/signout.js`, `index.html`, `styles/styles.css`,
+`sw.js` (`CACHE_VERSION` v1.6.0), `tests/index.html`, `README.md`, `docs/plan.md`, `docs/architecture.md`.
+
+- **Discharged → archive → deleted.** Patient Actions menu: *Discharged: move to archive* (with Undo). Archived
+  patients leave the census list, counts, sign-out, new-day rollover and voice commands. The census filter gains
+  *Archive*; *Return to census* brings a patient back. After the set time in the archive they are deleted for good,
+  from the database and from saved copies. Settings & backup → *Discharged patients*: move to archive right away
+  (default) / after 1 or 2 days; delete after 7 / 14 / 30 (default) / 60 / 90 days. "Discharge today" never
+  archives or deletes anyone.
+- **Saved copies screen.** Settings & backup → *Saved copies…*: date, reason and patient count for each copy.
+  Restore asks first, saves the current data as a copy, and offers Undo. Delete asks first.

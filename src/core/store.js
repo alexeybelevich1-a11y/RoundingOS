@@ -8,7 +8,8 @@
  *   meta        key                      schema version, migration status
  *   patients    id, purgeAfter           one row per patient; the record lives in `payload`
  *   settings    key ('app')              everything in state except patients, plus patientOrder
- *   snapshots   ++id, createdAt, reason  full copies of state (before import, clear, migration, daily)
+ *   snapshots   ++id, createdAt, reason  full copies of state (before import, clear, restore, migration, daily);
+ *                                        rows also keep patientCount (a number, no patient data) for the list
  *   tombstones  id, deletedAt            ids of deleted patients, so a merge import keeps them deleted
  *
  * NOT ENCRYPTED YET. Every record goes through encodeRecord()/decodeRecord(), and the payload
@@ -196,17 +197,55 @@ const Store = (() => {
   async function snapshot(reason, state) {
     const json = JSON.stringify(state);
     const d = requireDb();
-    const row = { createdAt: new Date().toISOString(), reason: String(reason || 'manual'), payload: await encodeRecord(json) };
+    const patientCount = Array.isArray(state && state.patients) ? state.patients.length : 0;
+    const row = { createdAt: new Date().toISOString(), reason: String(reason || 'manual'), patientCount, payload: await encodeRecord(json) };
     const id = await d.snapshots.add(row);
     const all = await d.snapshots.orderBy('id').primaryKeys();
     if (all.length > MAX_SNAPSHOTS) await d.snapshots.bulkDelete(all.slice(0, all.length - MAX_SNAPSHOTS));
     return id;
   }
 
-  /** Readable list (no patient data): [{ id, createdAt, reason }], newest first. */
+  /** Readable list (no patient data): [{ id, createdAt, reason, patientCount }], newest first. */
   async function listSnapshots() {
     const rows = await requireDb().snapshots.orderBy('id').reverse().toArray();
-    return rows.map(r => ({ id: r.id, createdAt: r.createdAt, reason: r.reason }));
+    const out = [];
+    for (const r of rows) {
+      let patientCount = r.patientCount;
+      if (typeof patientCount !== 'number') {
+        // copies made before patientCount was stored
+        try { patientCount = ((await decodeRecord(r.payload)).patients || []).length; } catch (e) { patientCount = null; }
+      }
+      out.push({ id: r.id, createdAt: r.createdAt, reason: r.reason, patientCount });
+    }
+    return out;
+  }
+
+  async function deleteSnapshot(id) {
+    return requireDb().snapshots.delete(id);
+  }
+
+  /**
+   * Removes these patients from every saved copy, so a patient deleted for good does not come
+   * back through a restore. Returns how many copies changed. Decodes and re-encodes outside the
+   * transaction (phase 4's WebCrypto would close it).
+   */
+  async function scrubSnapshots(patientIds) {
+    const ids = new Set(patientIds || []);
+    if (!ids.size) return 0;
+    const d = requireDb();
+    const rows = await d.snapshots.toArray();
+    const puts = [];
+    for (const r of rows) {
+      let saved;
+      try { saved = await decodeRecord(r.payload); } catch (e) { continue; }
+      const before = (saved.patients || []).length;
+      saved.patients = (saved.patients || []).filter(p => !ids.has(p && p.id));
+      if (saved.patients.length === before) continue;
+      if (saved.selectedPatientId && ids.has(saved.selectedPatientId)) saved.selectedPatientId = null;
+      puts.push({ ...r, patientCount: saved.patients.length, payload: await encodeRecord(JSON.stringify(saved)) });
+    }
+    if (puts.length) await d.snapshots.bulkPut(puts);
+    return puts.length;
   }
 
   /** Returns the saved state. The caller puts it into `state` and saves as usual. */
@@ -316,6 +355,8 @@ const Store = (() => {
     snapshot,
     listSnapshots,
     restoreSnapshot,
+    deleteSnapshot,
+    scrubSnapshots,
     ensureDailySnapshot,
     getTombstones,
     migrateFromLocalStorage,
