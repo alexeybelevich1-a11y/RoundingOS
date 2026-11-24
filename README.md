@@ -54,7 +54,9 @@ src/
   core/       app.js (controller, loads last)  data.js  crypto.js  store.js  retention.js  transfer.js  pwa.js
   clinical/   calc.js (calculators)  algorithms.js  dotphrases.js (templates)
   features/   planbuilder.js  progressnote.js  exambuilder.js  physical-exam-builder.js  reminders.js  signout.js
-  speech/     speech.js (dictation clean-up, voice commands)
+  speech/     speech.js (dictation clean-up, voice commands)  voice-grammar.js  voice-audio.js  voice-worker.js (on-device voice, beta)
+vendor/       dexie/  vosk-browser/  transformers/  VERSIONS.md
+labs/         voice-bench.html (on-device voice test page, not part of the app)
 tests/        index.html  harness.js  *.test.js  ui-baseline/
 scripts/      serve.mjs (pnpm dev)  test.mjs (pnpm test)
 docs/         architecture.md  plan.md
@@ -73,6 +75,18 @@ pnpm test      # runs tests/index.html in headless Chromium; fails if any test f
 The first time, `pnpm exec playwright install chromium` downloads the test browser.
 (A `file://` page can't use the service worker, encryption or the mic, so use `pnpm dev`.)
 With `pnpm dev` running you can also open `http://localhost:8000/tests/index.html` to see the tests in a browser.
+
+### On-device voice test (beta)
+`labs/voice-bench.html` checks whether on-device speech runs well enough on a device before it goes into the app:
+Vosk for commands, Whisper or Moonshine for dictation. It shows load times, the delay for a command, and how long
+a 30-second dictation takes, then gives a **Copy results** block. Models download once from Hugging Face
+(Vosk's from the vosk-browser demo site) and the browser keeps them. Audio stays on the device. Use made-up phrases only.
+
+- **Laptop:** `pnpm dev`, then open `http://localhost:8000/labs/voice-bench.html` in Chrome or Edge.
+- **Android phone:** the mic only works on https or localhost. Either open
+  `https://alexeybelevich1-a11y.github.io/RoundingOS/labs/voice-bench.html` once GitHub Pages is on, or plug the
+  phone into the laptop with USB debugging on, run `pnpm dev`, open `chrome://inspect/#devices` on the laptop,
+  turn on **Port forwarding** for `8000 → localhost:8000`, and open `http://localhost:8000/labs/voice-bench.html` in Chrome on the phone.
 
 ### Releasing a change
 Bump `CACHE_VERSION` in `sw.js` with every release, and add any new app file to `APP_FILES` there.

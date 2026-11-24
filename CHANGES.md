@@ -5,6 +5,11 @@ Changed: `index.html`, `styles.css`, `app.js`, `data.js`, `progressnote.js`, `pl
 
 Saved data migrates automatically: the legacy `weights` checklist key becomes `bm`, and the UI state is reset to the new layout once.
 
+
+## On-device voice, beta (phase 5, step 1)
+- New test page `labs/voice-bench.html` (not part of the app): measures Vosk commands and Whisper/Moonshine dictation on this device. The app itself is unchanged.
+- Vendored vosk-browser 0.0.8 (patched to run under the app's Content-Security-Policy) and transformers.js 3.8.1.
+
 ## Safety & data fixes
 - **C1** No normal exam or "imaging: none new" is ever inserted unless you click *Insert normal exam*; blanks stay `***`.
 - **C2** Unknown allergies show as amber **"Allergies not recorded"** everywhere (banner, note, sign-out); NKDA only when entered. New patients no longer default to 65 M: age, sex and code status are required.

@@ -1,0 +1,37 @@
+:root {
+  --bg: #f3f5f8; --surface: #fff; --border: #e3e7ed; --text: #111827; --muted: #6b7280;
+  --accent: #0f766e; --voice: #6d28d9; --error: #dc2626;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0f1115; --surface: #171a21; --border: #2a2f3a; --text: #e5e7eb; --muted: #9ca3af; --accent: #2dd4bf; --voice: #a78bfa; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header, section { max-width: 760px; margin: 0 auto 16px; }
+section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+h1 { font-size: 20px; margin: 4px 0 6px; }
+h2 { font-size: 16px; margin: 0 0 10px; }
+h3 { font-size: 14px; margin: 16px 0 4px; }
+p { margin: 4px 0 8px; }
+.beta { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--voice); border: 1px solid currentColor; border-radius: 999px; padding: 1px 7px; vertical-align: middle; }
+label { display: block; margin: 6px 0; font-size: 13px; color: var(--muted); }
+label.small { font-size: 12px; }
+label.check { color: var(--text); }
+input[type=url], select { display: block; width: 100%; margin-top: 3px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
+button { padding: 9px 14px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+button:disabled { opacity: .45; cursor: default; }
+button.listening { background: var(--voice); border-color: var(--voice); }
+.status { font-size: 13px; color: var(--muted); }
+.status.error, dd.error { color: var(--error); }
+.hint { font-size: 13px; color: var(--muted); }
+.phrases { margin: 0 0 6px; padding-left: 20px; font-size: 14px; }
+dl.out { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 8px 0 0; font-size: 14px; }
+dt { color: var(--muted); }
+dd { margin: 0; white-space: pre-wrap; word-break: break-word; }
+pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-size: 12px; background: var(--bg); border-radius: 6px; padding: 8px; }
+progress { width: 100%; }
+meter { width: 90px; }
+.hidden { display: none; }
