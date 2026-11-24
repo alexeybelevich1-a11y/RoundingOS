@@ -3,38 +3,50 @@
 Local-first hospitalist rounding workstation: census, checklists, tasks, consults, live progress note,
 211 structured workup/management templates and 10 interactive clinical algorithms (Plan Builder),
 I-PASS sign-out, alarms and voice dictation.
-Plain HTML/CSS/JavaScript with no dependencies.
+Plain HTML/CSS/JavaScript with no dependencies and no build step.
 
-> **Test data only for now.** Patient data is still saved unencrypted in browser storage.
-> Do not enter real patient information until encrypted storage (phase 1 of the local-first plan) lands.
+> **Test data only for now.** Patient data is saved **unencrypted** in browser storage.
+> Do not enter real patient information until encrypted storage lands (phase 3 of the local-first plan).
 
-## Install as an app (Android, laptop, iPhone)
-RoundingOS is a Progressive Web App. It is served as static files from GitHub Pages
-(`https://alexeybelevich1-a11y.github.io/RoundingOS/`), and once installed it opens and runs with no network.
-The web address only serves the code. Patient data stays in each device's own browser storage and is never uploaded.
+## Install (Android first, then laptop and iPhone)
+RoundingOS is a Progressive Web App served as static files from GitHub Pages:
+**https://alexeybelevich1-a11y.github.io/RoundingOS/**. Once installed it opens and runs with no network.
 
-- **Android (Chrome):** open the address, then menu **⋮ → Install app** (or the app's own menu **⋯ → Install app…**).
-- **Laptop (Chrome / Edge):** the install icon at the right of the address bar, or **⋯ → Install app…** in RoundingOS.
+- **Android (Chrome):** open the address, then RoundingOS's **⋯ → Install app…** (or Chrome's **⋮ → Install app**).
+- **Laptop (Chrome / Edge):** the install icon at the right of the address bar, or **⋯ → Install app…**.
 - **iPhone (Safari):** **Share → Add to Home Screen**. Safari has no install prompt, so the menu item shows these steps.
 
-Each device keeps its own data. Use **Settings & backup → Export encrypted** to move a census between devices
-(import currently replaces the census; a merging import is planned).
+A fresh install starts with an **empty census**. ⋯ → **Add 14 test patients** loads the sample patients.
+
+## Where data lives
+- Only on the device, in the installed app's browser storage (`localStorage`). The web address serves code only;
+  nothing is uploaded. The app's Content-Security-Policy blocks network requests to any other address.
+- Each device keeps its own data. The app asks the browser to keep its storage (`navigator.storage.persist()`).
+  On iPhone, use the installed app, not a Safari tab, or Safari may clear the data after 7 days unused.
+- **Voice is off by default.** Turning it on (⋯ → Voice input) shows a notice: browser speech recognition
+  sends audio to Google/Apple/Microsoft. On-device voice is planned (phase 4).
+
+## Backup and moving between devices
+⋯ → **Settings & backup → Export encrypted (.rnos)**, then **Import backup…** on the other device.
+Import replaces the whole census after a confirm (a merging import comes with encrypted storage).
+Moving from the old `localhost`/`file://` app works the same way: export there, import in the installed app.
+Afterwards delete any old plain-text `data/` folder and `backup-*.json` files.
+
+## Develop
+Serve the folder with any static server on localhost, e.g. `python3 -m http.server 8000`, then open
+`http://localhost:8000/`. (A `file://` page can't use the service worker, encryption or the mic.)
+Open `tests/index.html` on the same server to run the smoke tests.
 
 ### Releasing a change
 Bump `CACHE_VERSION` in `sw.js` with every release, and add any new app file to `APP_FILES` there.
 Installed copies download the new version in the background and show **Update available**; they reload only when you tap it.
 
-## Run (Windows, old local launcher)
-Double-click `Start-Hospitalist-Tracker.bat`. It starts a small local server (`server.ps1`) and opens
-`http://localhost:8765`. Running on localhost enables the microphone and saves to `data/hospitalist-data.json`.
-
 ## Privacy
-All patient data stays on the device: in browser storage, plus `data/` when started with the launcher.
 **`data/` and backup files are git-ignored. Never commit patient data.**
 The sample patients in `data.js` are fictional test data.
 
 Fast abnormal physical exam documentation: **Quick exam** beside the exam field opens the Physical Exam
 Quick-Builder — 8 systems, ~150 findings, 31 condition presets with search. `physical-exam-builder.html`
-is a standalone preview that runs on its own.
+is a standalone preview of it.
 
 See `CHANGES.md` for the latest changes.

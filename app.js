@@ -1,17 +1,13 @@
 /**
  * RoundingOS — Hospitalist Workflow Tracker Main Application Controller
- * Local-first storage: browser localStorage + optional local disk JSON sync (/api/data via server.ps1)
+ * Local-first storage: browser localStorage on this device (no server)
  */
 
 (() => {
   const STORAGE_KEY = 'roundingos_hospitalist_v1';
   const PRE_IMPORT_KEY = 'roundingos_pre_import_snapshot';
-  const isHttpLocal = window.location.protocol === 'http:' || window.location.protocol === 'https:';
-  const API_HEADERS = { 'X-RoundingOS': '1' };
 
   let state = getDefaultAppState();
-  let diskSyncAvailable = false;
-  let diskSaveTimer = null;
   let searchQuery = '';
   let signoutMode = 'shift';
   let expandedConsultId = null;
@@ -160,15 +156,13 @@
   }
 
   /* ========================================================================
-     Persistence (localStorage + local disk JSON via server.ps1)
+     Persistence (localStorage on this device)
      ======================================================================== */
   function updateStorageBadge() {
     const timeStr = state.lastSavedAt
       ? new Date(state.lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : '';
-    el.storageBadgeText.textContent = diskSyncAvailable
-      ? `Saved to disk + browser · ${timeStr}`
-      : `Saved in this browser · ${timeStr}`;
+    el.storageBadgeText.textContent = `Saved on this device · ${timeStr} · not encrypted: test data only`;
   }
 
   function saveState() {
@@ -180,23 +174,6 @@
       showToast('Could not write to browser storage.', 'error');
     }
     updateStorageBadge();
-
-    if (diskSyncAvailable) {
-      clearTimeout(diskSaveTimer);
-      diskSaveTimer = setTimeout(() => {
-        fetch('/api/data', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...API_HEADERS },
-          body: JSON.stringify(state)
-        }).then(res => {
-          if (!res.ok) throw new Error('save failed');
-        }).catch(() => {
-          diskSyncAvailable = false;
-          updateStorageBadge();
-          showToast('Disk sync stopped — data is still saved in this browser.', 'error');
-        });
-      }, 250);
-    }
   }
 
   // Another tab saved: reload instead of letting the two tabs overwrite each other
@@ -209,6 +186,7 @@
       ensureUiState();
       applyTheme(state.theme || 'light');
       applyUiShellState();
+      applyVoiceSetting();
       renderAll();
       showToast('Updated from another RoundingOS tab');
     } catch (err) { /* ignore */ }
@@ -223,22 +201,14 @@
       localData = null;
     }
 
-    if (isHttpLocal) {
-      try {
-        const res = await fetch('/api/data', { cache: 'no-store', headers: API_HEADERS });
-        if (res.ok) {
-          diskSyncAvailable = true;
-          const diskData = await res.json();
-          if (diskData && Array.isArray(diskData.patients)) {
-            const diskTs = Date.parse(diskData.lastSavedAt || 0);
-            const localTs = Date.parse(localData?.lastSavedAt || 0);
-            if (!localData || diskTs >= localTs) localData = diskData;
-          }
-        }
-      } catch (e) {
-        diskSyncAvailable = false;
+    // Ask the browser not to evict this app's storage (Android Chrome honors it for installed apps)
+    try {
+      if (navigator.storage && navigator.storage.persist) {
+        navigator.storage.persist().then(granted => {
+          $('storagePersistNote')?.classList.toggle('hidden', Boolean(granted));
+        }).catch(() => {});
       }
-    }
+    } catch (e) { /* not supported */ }
 
     if (localData && Array.isArray(localData.patients)) {
       state = { ...getDefaultAppState(), ...localData };
@@ -259,6 +229,7 @@
     if (typeof SpeechEngine.setCustomVocab === 'function') {
       SpeechEngine.setCustomVocab(state.customMedicalVocab || []);
     }
+    applyVoiceSetting();
     el.sortSelect.value = state.sortBy || 'priority';
     el.filterSelect.value = state.filterBy || 'all';
     el.serviceHeaderLabel.textContent = state.serviceName || 'Hospitalist Service';
@@ -292,6 +263,11 @@
       return;
     }
     state.ui = { ...defaults, ...state.ui, noteOpts: { ...defaults.noteOpts, ...(state.ui.noteOpts || {}) } };
+  }
+
+  function applyVoiceSetting() {
+    SpeechEngine.setEnabled(Boolean(state.voiceEnabled));
+    setMenuCheck('voiceToggleBtn', Boolean(state.voiceEnabled));
   }
 
   function setMenuCheck(id, on) {
@@ -1205,7 +1181,7 @@
     $('pfVoiceInterim').classList.add('hidden');
     $('pfAutoExtractedSummary').classList.add('hidden');
     $('pfVoiceStatus').textContent = window.location.protocol === 'file:'
-      ? 'Tip: the browser mic is blocked on file:// — use the launcher, or press Win + H inside the box.'
+      ? 'Tip: the browser mic is blocked on file:// — open the installed app, or press Win + H inside the box.'
       : '';
     $('intakeDetails').open = !patient;
 
@@ -1403,6 +1379,9 @@
   }
 
   SpeechEngine.init({
+    onConsentNeeded() {
+      openModal($('voiceConsentModal'));
+    },
     onStatusChange({ listening, mode }) {
       el.fabMic.classList.toggle('is-listening', listening);
       el.voiceBanner.classList.toggle('hidden', !listening);
@@ -1672,6 +1651,7 @@
         applyUiShellState();
         el.serviceHeaderLabel.textContent = state.serviceName;
         SpeechEngine.setCustomVocab(state.customMedicalVocab || []);
+        applyVoiceSetting();
         renderAll();
         closeModal(el.dataModal);
         showToast(`Imported ${state.patients.length} patients`);
@@ -1685,8 +1665,9 @@
 
   $('resetDemoBtn').addEventListener('click', () => {
     if (!confirm('Replace your current census with the 14 test patients?')) return;
-    const keep = { theme: state.theme, customDotPhrases: state.customDotPhrases, starredDotPhrases: state.starredDotPhrases, customMedicalVocab: state.customMedicalVocab, planBuilderSettings: state.planBuilderSettings };
-    state = { ...getDefaultAppState(), ...keep };
+    const keep = { theme: state.theme, customDotPhrases: state.customDotPhrases, starredDotPhrases: state.starredDotPhrases, customMedicalVocab: state.customMedicalVocab, planBuilderSettings: state.planBuilderSettings, voiceEnabled: state.voiceEnabled };
+    state = { ...getDefaultAppState(), ...keep, patients: getInitialTestPatients() };
+    state.selectedPatientId = state.patients[0]?.id || null;
     ensureUiState();
     saveState();
     applyUiShellState();
@@ -2105,6 +2086,26 @@
     $('medVocabHeard').value = '';
     $('medVocabReplace').value = '';
     renderMedVocabList();
+  });
+
+  // Voice on/off (cloud speech needs the user to see where audio goes first)
+  $('voiceToggleBtn').addEventListener('click', () => {
+    closeToolsMenu();
+    if (state.voiceEnabled) {
+      state.voiceEnabled = false;
+      saveState();
+      applyVoiceSetting();
+      showToast('Voice off');
+    } else {
+      openModal($('voiceConsentModal'));
+    }
+  });
+  $('voiceConsentOkBtn').addEventListener('click', () => {
+    state.voiceEnabled = true;
+    saveState();
+    applyVoiceSetting();
+    closeModal($('voiceConsentModal'));
+    showToast('Voice on. Tap the mic again to start.', 'voice');
   });
 
   $('voiceHelpBtn').addEventListener('click', () => { closeToolsMenu(); renderMedVocabList(); openModal(el.voiceHelpModal); });

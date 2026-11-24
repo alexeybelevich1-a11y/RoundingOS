@@ -580,7 +580,7 @@ function getDefaultAppState() {
     providerName: 'Dr. Hospitalist (Day Team A)',
     serviceName: 'Internal Medicine — Hospitalist Service',
     shiftDate: new Date().toISOString().slice(0, 10),
-    selectedPatientId: 'pt-01',
+    selectedPatientId: null,
     theme: 'light',
     sortBy: 'priority',
     filterBy: 'all',
@@ -590,7 +590,8 @@ function getDefaultAppState() {
     planBuilderSettings: null,
     reminders: [],
     customMedicalVocab: [],
-    patients: getInitialTestPatients(),
+    voiceEnabled: false, // cloud speech: off until the user agrees to the notice
+    patients: [], // test patients load only from the Test data menu
     lastSavedAt: new Date().toISOString()
   };
 }

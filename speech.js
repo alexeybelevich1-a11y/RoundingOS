@@ -26,6 +26,19 @@ const SpeechEngine = (() => {
     callbacks = { ...callbacks, ...opts };
   }
 
+  /* Voice is off until the user turns it on and sees that audio goes to the
+     browser's cloud speech service (Google/Apple/Microsoft). */
+  let voiceEnabled = false;
+  function setEnabled(on) {
+    voiceEnabled = Boolean(on);
+    if (!voiceEnabled && activeMode) stop();
+  }
+  function voiceAllowed() {
+    if (voiceEnabled) return true;
+    if (typeof callbacks.onConsentNeeded === 'function') callbacks.onConsentNeeded();
+    return false;
+  }
+
   const MEDICAL_PHONETIC_FIXES = [
     // Commonly misheard inpatient diagnoses, syndromes & microbiology
     [/\b(euro|your oh|you row)\s*sepsis\b/gi, 'urosepsis'],
@@ -540,6 +553,7 @@ const SpeechEngine = (() => {
   }
 
   function startCommandMode(continuous = true) {
+    if (!voiceAllowed()) return false;
     if (!isSupported()) {
       callbacks.onError('Speech recognition requires Chrome or Edge (Web Speech API not found in this browser).');
       return false;
@@ -581,7 +595,7 @@ const SpeechEngine = (() => {
       }
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         callbacks.onError(
-          'Microphone permission denied. Allow microphone access in browser settings (or launch via Start-Hospitalist-Tracker.bat so it runs on http://localhost).'
+          'Microphone permission denied. Allow microphone access for RoundingOS in browser settings.'
         );
         stop();
         return;
@@ -619,6 +633,7 @@ const SpeechEngine = (() => {
   }
 
   function toggleDictation(fieldEl, buttonEl, opts = {}) {
+    if (!voiceAllowed()) return false;
     if (!isSupported()) {
       callbacks.onError('Speech recognition requires Chrome or Edge.');
       return false;
@@ -678,7 +693,7 @@ const SpeechEngine = (() => {
     recognition.onerror = (event) => {
       if (event.error === 'no-speech') return;
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-        callbacks.onError('Microphone access blocked. Allow mic permission in Chrome/Edge (or run via Start-Hospitalist-Tracker.bat).');
+        callbacks.onError('Microphone access blocked. Allow mic permission in Chrome/Edge.');
       } else {
         callbacks.onError(`Dictation error: ${event.error}`);
       }
@@ -705,6 +720,7 @@ const SpeechEngine = (() => {
 
   function startFreestyleSession(opts = {}) {
     const { buttonEl, onAppendFinal, onInterim, onStateChange, onError } = opts;
+    if (!voiceAllowed()) return false;
 
     if (!isSupported()) {
       const msg = 'Built-in voice dictation requires Chrome or Edge. You can also press Win + H (Windows Voice Typing) inside the box below.';
@@ -755,7 +771,7 @@ const SpeechEngine = (() => {
         let msg = `Voice error: ${event.error}`;
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           msg = window.location.protocol === 'file:'
-            ? 'Microphone blocked on file:// page. Launch via Start-Hospitalist-Tracker.bat (http://localhost:8765), OR click inside the box and press Win + H!'
+            ? 'Microphone blocked on a file:// page. Open the installed app (or an https:// address), OR click inside the box and press Win + H!'
             : 'Microphone permission denied. Click the lock/mic icon in your browser address bar to allow microphone access.';
         } else if (event.error === 'audio-capture') {
           msg = 'No microphone detected. Check your Windows audio input device.';
@@ -1242,6 +1258,8 @@ const SpeechEngine = (() => {
   return {
     isSupported,
     init,
+    setEnabled,
+    isEnabled: () => voiceEnabled,
     startCommandMode,
     toggleDictation,
     startFreestyleSession,

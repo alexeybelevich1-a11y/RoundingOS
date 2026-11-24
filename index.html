@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="RoundingOS" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png" />
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
@@ -41,6 +41,7 @@
       <div class="dropdown-menu hidden" id="toolsDropdown" role="menu">
         <button class="dropdown-item" id="openPlanBuilderBtn" role="menuitem">Plan Builder <kbd>Alt B</kbd></button>
         <button class="dropdown-item" id="voiceHelpBtn" role="menuitem">Voice commands &amp; vocabulary</button>
+        <button class="dropdown-item dropdown-check" id="voiceToggleBtn" role="menuitemcheckbox">Voice input (cloud)</button>
         <div class="dropdown-divider"></div>
         <div class="dropdown-label">Layout</div>
         <button class="dropdown-item dropdown-check" id="togglePatientPaneBtn" role="menuitemcheckbox">Patient panel</button>
@@ -58,10 +59,17 @@
         <button class="dropdown-item" id="removeTestPatientsBtn" role="menuitem">Remove test patients</button>
         <button class="dropdown-item dropdown-item-danger" id="clearCensusQuickBtn" role="menuitem">Clear entire census…</button>
         <div class="dropdown-divider"></div>
+        <div class="dropdown-status hidden" id="storagePersistNote">The browser may clear this data under storage pressure. Install the app to keep it.</div>
         <div class="dropdown-status" id="storageBadge"><span class="storage-dot"></span><span id="storageBadgeText">Saved on this device</span></div>
       </div>
     </div>
   </header>
+
+  <!-- Test-data warning (removed once storage is encrypted) -->
+  <div class="testdata-banner hidden" id="testDataBanner" role="note">
+    <span>Not encrypted yet: use test patients only.</span>
+    <button type="button" class="testdata-banner-close" id="testDataBannerClose" aria-label="Hide until next launch">&times;</button>
+  </div>
 
   <!-- Live voice banner (only while the mic is on) -->
   <div class="voice-banner hidden" id="voiceBanner" role="status" aria-live="polite">
@@ -382,7 +390,7 @@
           <div class="form-group"><label for="setProviderName">Provider / team</label><input type="text" id="setProviderName" placeholder="Dr. Smith (Day Team A)" /></div>
           <div class="form-group"><label for="setServiceName">Service</label><input type="text" id="setServiceName" placeholder="Internal Medicine — Hospitalist" /></div>
         </div>
-        <p class="small-muted">All data stays on this device (browser storage, plus <code>data/hospitalist-data.json</code> when started with the launcher). Storage is not encrypted yet: use test patients only.</p>
+        <p class="small-muted">All data stays in this device's browser storage. Storage is not encrypted yet: use test patients only.</p>
         <h4 class="section-label">Backup</h4>
         <div class="data-actions-grid">
           <button class="btn btn-primary" id="exportEncryptedBtn">Export encrypted (.rnos)</button>
@@ -630,6 +638,24 @@
             <button type="button" class="btn btn-sm btn-primary" id="peApplyToPatientBtn">Insert into Physical Exam</button>
           </div>
         </aside>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Voice notice ===================== -->
+  <div class="modal-backdrop hidden" id="voiceConsentModal" role="dialog" aria-modal="true" aria-labelledby="voiceConsentTitle">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3 id="voiceConsentTitle">Turn on voice?</h3>
+        <button class="btn-close" data-close-modal="voiceConsentModal" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Voice uses Google/Apple/Microsoft speech servers: <strong>audio leaves this device</strong> while the mic is on.</p>
+        <p class="small-muted">Everything else stays on the device. You can turn voice off again in the ⋯ menu.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close-modal="voiceConsentModal">Not now</button>
+        <button class="btn btn-primary" id="voiceConsentOkBtn">Turn on voice</button>
       </div>
     </div>
   </div>

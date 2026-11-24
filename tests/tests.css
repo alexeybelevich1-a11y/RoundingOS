@@ -1,0 +1,4 @@
+body { font: 14px/1.5 system-ui, sans-serif; margin: 24px; color: #111827; background: #fff; }
+.pass { color: #047857; } .fail { color: #b91c1c; font-weight: 600; }
+#summary { font-weight: 700; font-size: 16px; }
+.app-frame { width: 1200px; height: 700px; border: 1px solid #e5e7eb; position: absolute; left: -9999px; }

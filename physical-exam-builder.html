@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'self'" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Physical Exam Quick-Builder — standalone preview</title>
 <style>
@@ -255,21 +256,6 @@ textarea:focus, input:focus { outline: 2px solid var(--accent); outline-offset: 
 </div>
 
 <script src="exambuilder.js"></script>
-<script>
-ExamBuilder.init({
-  getActivePatient: () => null,
-  showToast: msg => {
-    const t = document.getElementById('peToast');
-    if (!t) return;
-    t.textContent = msg;
-    clearTimeout(t._tm);
-    t._tm = setTimeout(() => { t.textContent = ''; }, 2600);
-  },
-  onApply: () => {}
-});
-ExamBuilder.open();
-document.getElementById('peModalPatientHint').textContent =
-  'Standalone preview — build the exam, then Copy';
-</script>
+<script src="physical-exam-builder.js"></script>
 </body>
 </html>

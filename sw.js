@@ -27,6 +27,7 @@ const APP_FILES = [
   'signout.js',
   'app.js',
   'physical-exam-builder.html',
+  'physical-exam-builder.js',
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',

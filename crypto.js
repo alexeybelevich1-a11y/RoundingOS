@@ -45,7 +45,7 @@ const BackupCrypto = (() => {
 
   async function encryptJson(obj, passphrase) {
     if (!window.crypto?.subtle) {
-      throw new Error('Web Crypto requires http://localhost (launch via Start-Hospitalist-Tracker.bat).');
+      throw new Error('Encryption needs the installed app or an https:// / http://localhost address (not a file:// page).');
     }
     const salt = crypto.getRandomValues(new Uint8Array(16));
     const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -66,7 +66,7 @@ const BackupCrypto = (() => {
 
   async function decryptJson(envelopeObj, passphrase) {
     if (!window.crypto?.subtle) {
-      throw new Error('Web Crypto requires http://localhost (launch via Start-Hospitalist-Tracker.bat).');
+      throw new Error('Encryption needs the installed app or an https:// / http://localhost address (not a file:// page).');
     }
     const salt = fromBase64(envelopeObj.salt);
     const iv = fromBase64(envelopeObj.iv);
