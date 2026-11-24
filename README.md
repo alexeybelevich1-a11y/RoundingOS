@@ -33,9 +33,18 @@ Moving from the old `localhost`/`file://` app works the same way: export there, 
 Afterwards delete any old plain-text `data/` folder and `backup-*.json` files.
 
 ## Develop
-Serve the folder with any static server on localhost, e.g. `python3 -m http.server 8000`, then open
-`http://localhost:8000/`. (A `file://` page can't use the service worker, encryption or the mic.)
-Open `tests/index.html` on the same server to run the smoke tests.
+Needs Node 20+ and pnpm (`corepack enable` sets up the pinned pnpm version). pnpm is dev tooling only:
+the app has no build step and no runtime npm packages, and GitHub Pages serves the files as they are.
+
+```sh
+pnpm install   # once: installs Playwright for the tests
+pnpm dev       # serves the repo at http://localhost:8000/ (another port: pnpm dev --port 9000)
+pnpm test      # runs tests/index.html in headless Chromium; fails if any test fails
+```
+
+The first time, `pnpm exec playwright install chromium` downloads the test browser.
+(A `file://` page can't use the service worker, encryption or the mic, so use `pnpm dev`.)
+With `pnpm dev` running you can also open `http://localhost:8000/tests/index.html` to see the tests in a browser.
 
 ### Releasing a change
 Bump `CACHE_VERSION` in `sw.js` with every release, and add any new app file to `APP_FILES` there.

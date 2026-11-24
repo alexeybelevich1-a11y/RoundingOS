@@ -1,0 +1,16 @@
+{
+  "name": "roundingos",
+  "private": true,
+  "description": "Dev tooling only. The app itself has no build step and no runtime dependencies.",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "test": "node scripts/test.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

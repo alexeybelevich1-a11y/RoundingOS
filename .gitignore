@@ -9,3 +9,6 @@ backup-*.json
 Thumbs.db
 .idea/
 .vscode/
+
+# Dev tooling
+node_modules/

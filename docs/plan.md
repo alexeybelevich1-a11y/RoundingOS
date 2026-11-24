@@ -22,7 +22,7 @@ Four phases. After each one the app works:
 > Between phases 3 and 4, real patients are fine, but keep **Voice set to Off**. Cloud voice sends audio to Google/Apple/Microsoft, and on-device voice arrives only in phase 4.
 
 **Ground rules for every phase** (from your decisions):
-- Plain JS, `<script>` tags, no React, no npm, no build step. Libraries are copied into `vendor/`, with their exact versions noted in `vendor/VERSIONS.md`. No CDN at runtime.
+- Plain JS, `<script>` tags, no React, no runtime npm packages, no build step (pnpm only for dev tooling: local server and headless tests). Libraries are copied into `vendor/`, with their exact versions noted in `vendor/VERSIONS.md`. No CDN at runtime.
 - **The UI stays as it is.** The only new screens are the ones named below (the unlock/setup screen, the import summary, the voice setting), built from the existing modal and toast styles.
 - The app keeps its in-memory `state` object. Only how `state` is saved and loaded changes, so the ~70 `saveState()` calls across the code stay as they are.
 - Every phase ends with a commit and a short manual check on both devices.
@@ -294,7 +294,7 @@ Removed: `server.ps1` and `Start-Hospitalist-Tracker.bat`. On your machine, dele
 
 Run on both devices after phase 3, before any real patient. Re-run the voice items after phase 4.
 
-- [ ] `tests/index.html` all green
+- [ ] `pnpm test` (tests/index.html) all green
 - [ ] Airplane mode: open, unlock, add a patient, print sign-out
 - [ ] Voice is Off (until phase 4); after phase 4, dictation and a voice command work in airplane mode
 - [ ] Network panel: no requests leave the device during a full session
