@@ -10,7 +10,9 @@ The roadmap is [`docs/plan.md`](docs/plan.md). These rules apply to every change
 - `package.json` (pnpm) holds dev tooling only: `pnpm dev` and `pnpm test`. Never add a runtime dependency
   or make the app need `node_modules/`; GitHub Pages serves the repo files as they are.
 - New libraries only when the plan calls for them, copied into `vendor/` with the version in `vendor/VERSIONS.md`. Never load from a CDN.
-- Keep `app.js`'s in-memory `state` and the synchronous `saveState()` contract; do not rewrite the controller.
+- Put new files in the folder for their role (see the layout in `docs/architecture.md`): `src/core`, `src/clinical`,
+  `src/features`, `src/speech`. `index.html`, `manifest.json` and `sw.js` stay at the root.
+- Keep `src/core/app.js`'s in-memory `state` and the synchronous `saveState()` contract; do not rewrite the controller.
 
 ## UI
 
@@ -37,5 +39,6 @@ The roadmap is [`docs/plan.md`](docs/plan.md). These rules apply to every change
 
 - Run `pnpm test` and confirm all tests pass; report the result in the PR.
 - Load the app with `pnpm dev`, click through the screens you touched with the console open, and fix any errors.
-- If you added or renamed an app file, update `index.html` and `APP_FILES` in `sw.js`, and bump `CACHE_VERSION`.
+- If you added, moved or renamed an app file, update `index.html` (and `tests/index.html` if tests load it) and
+  `APP_FILES` in `sw.js`, and bump `CACHE_VERSION`.
 - Keep the change small and focused on one task. Note user-visible changes in `CHANGES.md`.

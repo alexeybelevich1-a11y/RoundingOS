@@ -32,6 +32,24 @@ Import replaces the whole census after a confirm (a merging import comes with en
 Moving from the old `localhost`/`file://` app works the same way: export there, import in the installed app.
 Afterwards delete any old plain-text `data/` folder and `backup-*.json` files.
 
+## Where things are
+
+```
+index.html                  the app page (all markup); loads the scripts below in order
+physical-exam-builder.html  standalone preview of the exam builder
+manifest.json  sw.js        PWA manifest and service worker (must stay at the root)
+styles/styles.css           all styles (light, dark, sepia)
+icons/                      app icons
+src/
+  core/       app.js (controller, loads last)  data.js  crypto.js  pwa.js
+  clinical/   calc.js (calculators)  algorithms.js  dotphrases.js (templates)
+  features/   planbuilder.js  progressnote.js  exambuilder.js  physical-exam-builder.js  reminders.js  signout.js
+  speech/     speech.js (dictation clean-up, voice commands)
+tests/        index.html  harness.js  *.test.js  ui-baseline/
+scripts/      serve.mjs (pnpm dev)  test.mjs (pnpm test)
+docs/         architecture.md  plan.md
+```
+
 ## Develop
 Needs Node 20+ and pnpm (`corepack enable` sets up the pinned pnpm version). pnpm is dev tooling only:
 the app has no build step and no runtime npm packages, and GitHub Pages serves the files as they are.
@@ -52,7 +70,7 @@ Installed copies download the new version in the background and show **Update av
 
 ## Privacy
 **`data/` and backup files are git-ignored. Never commit patient data.**
-The sample patients in `data.js` are fictional test data.
+The sample patients in `src/core/data.js` are fictional test data.
 
 Fast abnormal physical exam documentation: **Quick exam** beside the exam field opens the Physical Exam
 Quick-Builder — 8 systems, ~150 findings, 31 condition presets with search. `physical-exam-builder.html`

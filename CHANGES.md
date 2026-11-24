@@ -157,3 +157,9 @@ Changed: `planbuilder.js`, `index.html`, `sw.js`, `tests/harness.js`, `tests/ind
 - Tests: missing inputs return nothing (never 0), the MELD 3.0 bounds, the Na-cap and delta-delta fixes,
   dictation clean-up ("sigmoid colon", "as part of", "dig level"), and one case per voice command.
 - Known-answer calculator cases show as `○ TODO` until their expected values are filled in from MDCalc.
+
+# RoundingOS v1.4 — Files grouped into folders (2026-11-24)
+
+No visible change. The scripts moved into `src/core`, `src/clinical`, `src/features` and `src/speech`, and the
+stylesheet into `styles/`. `index.html`, `physical-exam-builder.html`, `sw.js` (`CACHE_VERSION` v1.4.0) and
+`tests/index.html` load them from there. The layout is in `README.md` and `docs/architecture.md`.
