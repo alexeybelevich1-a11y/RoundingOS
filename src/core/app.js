@@ -1,6 +1,6 @@
 /**
  * RoundingOS — Hospitalist Workflow Tracker Main Application Controller
- * Local-first storage: browser localStorage on this device (no server)
+ * Local-first storage: on-device database (store.js); nothing leaves the device
  */
 
 (() => {
@@ -156,8 +156,16 @@
   }
 
   /* ========================================================================
-     Persistence (localStorage on this device)
+     Persistence (on-device database through Store; localStorage only as a fallback)
      ======================================================================== */
+  // Tests load the app with ?testdb=1 so they never touch the real database.
+  const DB_NAME = new URLSearchParams(location.search).has('testdb') ? 'roundingos-test' : 'roundingos';
+  const TAB_ID = Math.random().toString(36).slice(2);
+  const SAVE_DELAY_MS = 300;
+  let storageMode = 'loading'; // 'loading' | 'db' | 'local' (IndexedDB unavailable or migration failed)
+  let saveTimer = null;
+  let saveChannel = null;
+
   function updateStorageBadge() {
     const timeStr = state.lastSavedAt
       ? new Date(state.lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -165,65 +173,50 @@
     el.storageBadgeText.textContent = `Saved on this device · ${timeStr} · not encrypted: test data only`;
   }
 
+  /** Synchronous for its ~70 callers: the database write follows after a short pause. */
   function saveState() {
+    if (storageMode === 'loading') return; // never overwrite saved data with the empty startup state
     state.lastSavedAt = new Date().toISOString();
-    try {
-      lastSavedJson = JSON.stringify(state);
-      localStorage.setItem(STORAGE_KEY, lastSavedJson);
-    } catch (e) {
-      showToast('Could not write to browser storage.', 'error');
+    if (storageMode === 'local') {
+      try {
+        lastSavedJson = JSON.stringify(state);
+        localStorage.setItem(STORAGE_KEY, lastSavedJson);
+      } catch (e) {
+        showToast('Could not write to browser storage.', 'error');
+      }
+    } else {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(flushSave, SAVE_DELAY_MS);
     }
     updateStorageBadge();
   }
 
-  // Another tab saved: reload instead of letting the two tabs overwrite each other
-  window.addEventListener('storage', e => {
-    if (e.key !== STORAGE_KEY || !e.newValue || e.newValue === lastSavedJson) return;
-    try {
-      const incoming = JSON.parse(e.newValue);
-      if (!Array.isArray(incoming.patients)) return;
-      state = { ...getDefaultAppState(), ...incoming };
-      ensureUiState();
-      applyTheme(state.theme || 'light');
-      applyUiShellState();
-      applyVoiceSetting();
-      renderAll();
-      showToast('Updated from another RoundingOS tab');
-    } catch (err) { /* ignore */ }
+  /** Writes now. Resolves when the database has the current state. */
+  function flushSave() {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    if (storageMode !== 'db') return Promise.resolve();
+    return Store.save(state).then(result => {
+      if (result.changed && saveChannel) saveChannel.postMessage({ type: 'changed', from: TAB_ID });
+    }).catch(() => {
+      showToast('Could not write to browser storage.', 'error');
+    });
+  }
+
+  // Phones kill background apps without warning: write pending edits as soon as the app is hidden.
+  window.addEventListener('pagehide', () => { if (saveTimer) flushSave(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && saveTimer) flushSave();
   });
 
-  async function loadInitialState() {
-    let localData = null;
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) localData = JSON.parse(raw);
-    } catch (e) {
-      localData = null;
-    }
-
-    // Ask the browser not to evict this app's storage (Android Chrome honors it for installed apps)
-    try {
-      if (navigator.storage && navigator.storage.persist) {
-        navigator.storage.persist().then(granted => {
-          $('storagePersistNote')?.classList.toggle('hidden', Boolean(granted));
-        }).catch(() => {});
-      }
-    } catch (e) { /* not supported */ }
-
-    if (localData && Array.isArray(localData.patients)) {
-      state = { ...getDefaultAppState(), ...localData };
-    } else {
-      state = getDefaultAppState();
-      saveState();
-    }
-
+  /** Puts a loaded or restored state in place and redraws everything. */
+  function applyLoadedState(incoming) {
+    state = { ...getDefaultAppState(), ...incoming };
     ensureUiState();
     migratePatients();
-
     if (!state.patients.some(p => p.id === state.selectedPatientId)) {
       state.selectedPatientId = state.patients[0]?.id || null;
     }
-
     applyTheme(state.theme || 'light');
     applyUiShellState();
     if (typeof SpeechEngine.setCustomVocab === 'function') {
@@ -236,6 +229,107 @@
     syncNoteOptionInputs();
     updateStorageBadge();
     renderAll();
+  }
+
+  /** Full copy of state before a risky change. Returns an id for undoSnapshot(), or null. */
+  async function takeSnapshot(reason) {
+    if (storageMode === 'db') {
+      try { return await Store.snapshot(reason, state); } catch (e) { return null; }
+    }
+    try { localStorage.setItem(PRE_IMPORT_KEY, JSON.stringify(state)); return 'local'; } catch (e) { return null; }
+  }
+
+  async function undoSnapshot(id) {
+    try {
+      const saved = id === 'local'
+        ? JSON.parse(localStorage.getItem(PRE_IMPORT_KEY))
+        : await Store.restoreSnapshot(id);
+      if (!saved || !Array.isArray(saved.patients)) throw new Error('empty snapshot');
+      applyLoadedState(saved);
+      saveState();
+      showToast(`Restored ${state.patients.length} patients`);
+    } catch (err) {
+      showToast('Could not undo: the saved copy is missing.', 'error');
+    }
+  }
+
+  // Another tab saved: reload instead of letting the two tabs overwrite each other
+  function startTabSync() {
+    if (storageMode === 'db' && typeof BroadcastChannel === 'function') {
+      saveChannel = new BroadcastChannel(`roundingos:${DB_NAME}`);
+      saveChannel.addEventListener('message', async e => {
+        if (!e.data || e.data.type !== 'changed' || e.data.from === TAB_ID) return;
+        try {
+          const incoming = await Store.load();
+          if (!incoming || !Array.isArray(incoming.patients)) return;
+          clearTimeout(saveTimer);
+          saveTimer = null;
+          applyLoadedState(incoming);
+          showToast('Updated from another RoundingOS tab');
+        } catch (err) { /* ignore */ }
+      });
+    }
+    if (storageMode === 'local') {
+      window.addEventListener('storage', e => {
+        if (e.key !== STORAGE_KEY || !e.newValue || e.newValue === lastSavedJson) return;
+        try {
+          const incoming = JSON.parse(e.newValue);
+          if (!Array.isArray(incoming.patients)) return;
+          applyLoadedState(incoming);
+          showToast('Updated from another RoundingOS tab');
+        } catch (err) { /* ignore */ }
+      });
+    }
+  }
+
+  /** Opens the database; the first time, copies the old localStorage save into it. */
+  async function openSavedState() {
+    try {
+      await Store.open(DB_NAME);
+      let saved = await Store.load();
+      if (!saved) {
+        const result = await Store.migrateFromLocalStorage();
+        if (result.migrated) saved = await Store.load();
+      }
+      storageMode = 'db';
+      return saved;
+    } catch (err) {
+      // IndexedDB missing, or the copy could not be verified: keep using localStorage, which is untouched
+      Store.close();
+      storageMode = 'local';
+      showToast(`Could not move data to the on-device database (${err.message}). Still saving to browser storage.`, 'error');
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+  }
+
+  async function loadInitialState() {
+    // Ask the browser not to evict this app's storage (Android Chrome honors it for installed apps)
+    try {
+      if (navigator.storage && navigator.storage.persist) {
+        navigator.storage.persist().then(granted => {
+          $('storagePersistNote')?.classList.toggle('hidden', Boolean(granted));
+        }).catch(() => {});
+      }
+    } catch (e) { /* not supported */ }
+
+    const saved = await openSavedState();
+    startTabSync();
+
+    if (saved && Array.isArray(saved.patients)) {
+      applyLoadedState(saved);
+      // Store what loading filled in (missing fields), without marking every patient as just edited
+      if (storageMode === 'db') Store.save(state, { keepTimestamps: true }).catch(() => {});
+    } else {
+      applyLoadedState(getDefaultAppState());
+      saveState();
+    }
+    if (storageMode === 'db') Store.ensureDailySnapshot(state).catch(() => {});
+    document.documentElement.dataset.storeReady = storageMode;
     if (typeof ReminderEngine !== 'undefined') ReminderEngine.onStateLoaded();
   }
 
@@ -445,6 +539,7 @@
     closeToolsMenu();
     if (state.patients.length === 0) { showToast('Census is already empty.'); return; }
     if (!confirm(`Remove all ${state.patients.length} patients from the census?\n\nTip: export a backup first (⋯ → Settings & backup).`)) return;
+    takeSnapshot('before clear census');
     state.patients.forEach(p => ReminderEngine?.unlinkPatient?.(p.id));
     state.patients = [];
     state.selectedPatientId = null;
@@ -1603,11 +1698,18 @@
     });
   }
 
+  /** Export payload: the current state (pending edits written first) plus ids deleted here. */
+  async function getExportPayload() {
+    await flushSave();
+    const tombstones = storageMode === 'db' ? await Store.getTombstones().catch(() => []) : [];
+    return Transfer.buildExport(state, tombstones);
+  }
+
   $('exportEncryptedBtn').addEventListener('click', async () => {
     const pass = await askPassphrase({ confirmIt: true, hint: 'Encrypts the backup with AES-256 (compatible with the RoundingOS phone app). Without this passphrase the file cannot be opened.' });
     if (!pass) return;
     try {
-      const encrypted = await BackupCrypto.encryptJson(state, pass);
+      const encrypted = await BackupCrypto.encryptJson(await getExportPayload(), pass);
       downloadFile(`roundingos-backup-${new Date().toISOString().slice(0, 10)}.rnos`, encrypted, 'application/json');
       showToast('Encrypted backup exported');
     } catch (err) {
@@ -1615,10 +1717,32 @@
     }
   });
 
-  $('exportJsonBtn').addEventListener('click', () => {
+  $('exportJsonBtn').addEventListener('click', async () => {
     if (!confirm('This file contains patient information in readable form. Export unencrypted anyway?')) return;
-    downloadFile(`roundingos-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 2), 'application/json');
+    downloadFile(`roundingos-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(await getExportPayload(), null, 2), 'application/json');
   });
+
+  /** Import summary dialog. Resolves to 'merge', 'replace' or null. */
+  function askImportChoice(summaryText, incomingCount) {
+    return new Promise(resolve => {
+      const modal = $('importModal');
+      $('importSummary').textContent = summaryText;
+      $('importCounts').textContent = `This device: ${state.patients.length} patients. Backup: ${incomingCount} patients.`;
+      modal.classList.remove('hidden');
+      $('importMergeBtn').focus();
+      const buttons = { importMergeBtn: 'merge', importReplaceBtn: 'replace', importCancelBtn: null };
+      const handlers = {};
+      const done = val => {
+        modal.classList.add('hidden');
+        Object.keys(buttons).forEach(id => $(id).removeEventListener('click', handlers[id]));
+        resolve(val);
+      };
+      Object.keys(buttons).forEach(id => {
+        handlers[id] = () => done(buttons[id]);
+        $(id).addEventListener('click', handlers[id]);
+      });
+    });
+  }
 
   el.importJsonInput.addEventListener('change', e => {
     const file = e.target.files?.[0];
@@ -1637,24 +1761,27 @@
           }
         }
         if (!parsed || !Array.isArray(parsed.patients)) throw new Error('Not a RoundingOS backup');
-        if (!confirm(`Replace your current census (${state.patients.length} patients) with the backup (${parsed.patients.length} patients)?\n\nYour current data is kept as a one-time snapshot in this browser.`)) {
-          e.target.value = '';
-          return;
+        await flushSave(); // so updatedAt on recent edits is current before comparing
+        const tombstones = storageMode === 'db' ? await Store.getTombstones().catch(() => []) : [];
+        const merged = Transfer.mergeStates(state, parsed, tombstones);
+        const choice = await askImportChoice(`Merge: ${Transfer.describeSummary(merged.summary)}.`, parsed.patients.length);
+        if (!choice) { e.target.value = ''; return; }
+
+        const snapId = await takeSnapshot('before import');
+        if (choice === 'merge') {
+          state.patients = merged.patients;
+          applyLoadedState(state);
+        } else {
+          applyLoadedState(Transfer.stripTransferFields(parsed));
+          state.selectedPatientId = state.patients[0]?.id || null;
+          renderAll();
         }
-        try { localStorage.setItem(PRE_IMPORT_KEY, JSON.stringify(state)); } catch (err) { /* storage full: continue */ }
-        state = { ...getDefaultAppState(), ...parsed };
-        ensureUiState();
-        migratePatients();
-        state.selectedPatientId = state.patients[0]?.id || null;
         saveState();
-        applyTheme(state.theme || 'light');
-        applyUiShellState();
-        el.serviceHeaderLabel.textContent = state.serviceName;
-        SpeechEngine.setCustomVocab(state.customMedicalVocab || []);
-        applyVoiceSetting();
-        renderAll();
         closeModal(el.dataModal);
-        showToast(`Imported ${state.patients.length} patients`);
+        showToast(choice === 'merge'
+          ? `Merged backup: ${Transfer.describeSummary(merged.summary)}`
+          : `Imported ${state.patients.length} patients`, 'info',
+          snapId ? { label: 'Undo', onClick: () => undoSnapshot(snapId) } : undefined);
       } catch (err) {
         showToast(`Import failed: ${err.message}`, 'error');
       }
@@ -1665,6 +1792,7 @@
 
   $('resetDemoBtn').addEventListener('click', () => {
     if (!confirm('Replace your current census with the 14 test patients?')) return;
+    takeSnapshot('before loading test patients');
     const keep = { theme: state.theme, customDotPhrases: state.customDotPhrases, starredDotPhrases: state.starredDotPhrases, customMedicalVocab: state.customMedicalVocab, planBuilderSettings: state.planBuilderSettings, voiceEnabled: state.voiceEnabled };
     state = { ...getDefaultAppState(), ...keep, patients: getInitialTestPatients() };
     state.selectedPatientId = state.patients[0]?.id || null;
@@ -2125,6 +2253,7 @@
       // A ringing alarm is never silently dismissed: Esc snoozes it 15 min
       if (ReminderEngine?.isAlertOpen?.()) { ReminderEngine.snoozeActive(15); return; }
       if (!$('passModal').classList.contains('hidden')) { $('passCancelBtn').click(); return; }
+      if (!$('importModal').classList.contains('hidden')) { $('importCancelBtn').click(); return; }
       closeAllPopovers();
       const open = [...document.querySelectorAll('.modal-backdrop:not(.hidden)')];
       if (open.length) closeModal(open[open.length - 1]); // close only the top-most dialog

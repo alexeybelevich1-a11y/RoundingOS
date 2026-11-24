@@ -5,8 +5,8 @@ Local-first hospitalist rounding workstation: census, checklists, tasks, consult
 I-PASS sign-out, alarms and voice dictation.
 Plain HTML/CSS/JavaScript with no dependencies and no build step.
 
-> **Test data only for now.** Patient data is saved **unencrypted** in browser storage.
-> Do not enter real patient information until encrypted storage lands (phase 3 of the local-first plan).
+> **Test data only for now.** Patient data is saved **unencrypted** in the browser's on-device database.
+> Do not enter real patient information until encrypted storage lands (phase 4 of the local-first plan).
 
 ## Install (Android first, then laptop and iPhone)
 RoundingOS is a Progressive Web App served as static files from GitHub Pages:
@@ -19,7 +19,9 @@ RoundingOS is a Progressive Web App served as static files from GitHub Pages:
 A fresh install starts with an **empty census**. ⋯ → **Add 14 test patients** loads the sample patients.
 
 ## Where data lives
-- Only on the device, in the installed app's browser storage (`localStorage`). The web address serves code only;
+- Only on the device, in the installed app's on-device database (IndexedDB, one record per patient; see
+  `src/core/store.js`). The first start after the update moves older data out of `localStorage` and deletes the
+  old copy only after checking the move. The web address serves code only;
   nothing is uploaded. The app's Content-Security-Policy blocks network requests to any other address.
 - Each device keeps its own data. The app asks the browser to keep its storage (`navigator.storage.persist()`).
   On iPhone, use the installed app, not a Safari tab, or Safari may clear the data after 7 days unused.
@@ -28,7 +30,9 @@ A fresh install starts with an **empty census**. ⋯ → **Add 14 test patients*
 
 ## Backup and moving between devices
 ⋯ → **Settings & backup → Export encrypted (.rnos)**, then **Import backup…** on the other device.
-Import replaces the whole census after a confirm (a merging import comes with encrypted storage).
+Import shows a summary ("2 new, 5 updated, 1 kept local (newer)") and offers **Merge** (the newer copy of each
+patient wins, and patients deleted on either device stay deleted) or **Replace everything**. Either one can be
+undone from the toast; a copy of the data is kept before every import.
 Moving from the old `localhost`/`file://` app works the same way: export there, import in the installed app.
 Afterwards delete any old plain-text `data/` folder and `backup-*.json` files.
 

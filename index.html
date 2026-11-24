@@ -427,6 +427,23 @@
     </form>
   </div>
 
+  <!-- ===================== Import summary ===================== -->
+  <div class="modal-backdrop hidden" id="importModal" role="dialog" aria-modal="true" aria-labelledby="importModalTitle" style="z-index:170;">
+    <div class="modal modal-sm">
+      <div class="modal-header"><h3 id="importModalTitle">Import backup</h3></div>
+      <div class="modal-body">
+        <p id="importSummary" style="margin-top:0"></p>
+        <p class="small-muted" id="importCounts"></p>
+        <p class="small-muted">Merge keeps the newer copy of each patient. Replace everything swaps your census and settings for the backup. A copy of your current data is kept so you can undo either one.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="importCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-ghost warn-text" id="importReplaceBtn">Replace everything</button>
+        <button type="button" class="btn btn-primary" id="importMergeBtn">Merge</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===================== Plan Builder ===================== -->
   <div class="modal-backdrop hidden" id="planBuilderModal" role="dialog" aria-modal="true" aria-labelledby="planBuilderModalTitle">
     <div class="modal modal-planbuilder">
@@ -699,8 +716,11 @@
   <div id="printArea" class="print-only"></div>
 
   <script src="src/core/pwa.js"></script>
+  <script src="vendor/dexie/dexie.min.js"></script>
   <script src="src/core/data.js"></script>
   <script src="src/core/crypto.js"></script>
+  <script src="src/core/store.js"></script>
+  <script src="src/core/transfer.js"></script>
   <script src="src/clinical/dotphrases.js"></script>
   <script src="src/features/progressnote.js"></script>
   <script src="src/features/exambuilder.js"></script>

@@ -7,9 +7,14 @@
 </head>
 <body>
   <h1>RoundingOS tests</h1>
-  <p>Open over http://localhost or the GitHub Pages address (not file://). Uses this browser's storage for the app and restores it afterwards.</p>
+  <p>Open over http://localhost or the GitHub Pages address (not file://). Uses throwaway databases (roundingos-test, roundingos-unit) and restores the old localStorage key afterwards.</p>
   <p id="summary">Running…</p>
   <ul id="results"></ul>
+  <script src="../vendor/dexie/dexie.min.js"></script>
+  <script src="../src/core/data.js"></script>
+  <script src="../src/core/crypto.js"></script>
+  <script src="../src/core/store.js"></script>
+  <script src="../src/core/transfer.js"></script>
   <script src="harness.js"></script>
   <script src="smoke.test.js"></script>
   <script src="../src/clinical/calc.js"></script>
@@ -17,6 +22,9 @@
   <script src="calc.test.js"></script>
   <script src="dictation.test.js"></script>
   <script src="commands.test.js"></script>
+  <script src="store.test.js"></script>
+  <script src="migration.test.js"></script>
+  <script src="transfer.test.js"></script>
   <script src="run.js"></script>
 </body>
 </html>

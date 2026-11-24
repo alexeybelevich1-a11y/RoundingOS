@@ -4,10 +4,10 @@
  * copies keep running the old code. The new version downloads in the background
  * and waits; the page shows "Update available" and only reloads when you tap it.
  *
- * This file caches app code only. Patient data lives in browser storage and is
- * never cached here or sent anywhere.
+ * This file caches app code only. Patient data lives in the on-device database
+ * (IndexedDB, see src/core/store.js) and is never cached here or sent anywhere.
  */
-const CACHE_VERSION = 'roundingos-v1.4.0';
+const CACHE_VERSION = 'roundingos-v1.5.0';
 
 const APP_FILES = [
   './',
@@ -15,8 +15,11 @@ const APP_FILES = [
   'styles/styles.css',
   'manifest.json',
   'src/core/pwa.js',
+  'vendor/dexie/dexie.min.js',
   'src/core/data.js',
   'src/core/crypto.js',
+  'src/core/store.js',
+  'src/core/transfer.js',
   'src/clinical/dotphrases.js',
   'src/features/progressnote.js',
   'src/features/exambuilder.js',

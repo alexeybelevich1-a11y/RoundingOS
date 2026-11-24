@@ -163,3 +163,21 @@ Changed: `planbuilder.js`, `index.html`, `sw.js`, `tests/harness.js`, `tests/ind
 No visible change. The scripts moved into `src/core`, `src/clinical`, `src/features` and `src/speech`, and the
 stylesheet into `styles/`. `index.html`, `physical-exam-builder.html`, `sw.js` (`CACHE_VERSION` v1.4.0) and
 `tests/index.html` load them from there. The layout is in `README.md` and `docs/architecture.md`.
+
+# RoundingOS v1.5 — On-device database (2026-11-24)
+
+New: `src/core/store.js`, `src/core/transfer.js`, `vendor/dexie/` (Dexie 4.4.7, see `vendor/VERSIONS.md`),
+`tests/store.test.js`, `tests/migration.test.js`, `tests/transfer.test.js`.
+Changed: `src/core/app.js` (save/load only), `index.html`, `sw.js` (`CACHE_VERSION` v1.5.0), `tests/harness.js`,
+`tests/index.html`, `tests/smoke.test.js`, `README.md`, `docs/architecture.md`.
+
+- Data moves from one `localStorage` text blob to IndexedDB: one row per patient, plus settings, snapshots and
+  deleted-patient records. Saves write only the patients that changed, 300 ms after the last edit, and right away
+  when the app is hidden or closed.
+- First start after the update: the old `localStorage` save is copied in, read back and compared, and only then
+  deleted (with the old pre-import snapshot). If anything fails, the old copy stays and the app keeps using it.
+- **Import merges:** a summary dialog offers Merge or Replace everything. Undo from the toast restores the copy
+  taken before the import. Exports now list deleted patient ids so a deletion carries over to the other device.
+- A copy of the data is also kept before "Clear census", before loading test patients, and once a day (last 7).
+- Two open tabs still stay in step (BroadcastChannel instead of the `storage` event).
+- Still **not encrypted**: the "test data only" banner and badge stay until phase 4.
