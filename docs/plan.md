@@ -272,20 +272,22 @@ Both reuse `store.js` and `voice.js` as they are, which is why the plan puts sto
 
 ## Final file layout
 
+Files are grouped in folders (2026-11-24). Tables above name files without their folder.
+
 ```
-index.html  manifest.json  sw.js  styles.css  README.md  CHANGES.md
-app.js  planbuilder.js  progressnote.js  signout.js  reminders.js
-exambuilder.js  algorithms.js  dotphrases.js  data.js
-physical-exam-builder.html   (loads exambuilder.js)              phase 1
-calc.js        calculators as pure functions                     phase 2
-speech.js      kept: text clean-up + command parsing
-voice.js  voice-webspeech.js  voice-vosk.js  voice-whisper.js  voice-worker.js   phase 4
-crypto.js      kept; 600k iterations, reads old files            phase 3
-store.js       Dexie + per-record encryption                     phase 3
-transfer.js    export / import / merge                           phase 3
-vendor/        dexie, vosk-browser, transformers.js  (+ VERSIONS.md)
+index.html  physical-exam-builder.html  manifest.json  sw.js  README.md  CHANGES.md
+styles/styles.css
 icons/
-tests/         index.html  harness.js  *.test.js
+src/core/       app.js  data.js  pwa.js
+                crypto.js      kept; 600k iterations, reads old files            phase 3
+                store.js       Dexie + per-record encryption                     phase 3
+                transfer.js    export / import / merge                           phase 3
+src/clinical/   calc.js (phase 2)  algorithms.js  dotphrases.js
+src/features/   planbuilder.js  progressnote.js  exambuilder.js  physical-exam-builder.js  reminders.js  signout.js
+src/speech/     speech.js      kept: text clean-up + command parsing
+                voice.js  voice-webspeech.js  voice-vosk.js  voice-whisper.js  voice-worker.js   phase 4
+vendor/         dexie, vosk-browser, transformers.js  (+ VERSIONS.md)
+tests/          index.html  harness.js  *.test.js
 ```
 
 Removed: `server.ps1` and `Start-Hospitalist-Tracker.bat`. On your machine, delete the plain-text `data/` folder once the data has moved into the PWA.

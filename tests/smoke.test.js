@@ -38,10 +38,10 @@ test('manifest has the fields Android needs', async () => {
   assert(m.icons.some(i => i.sizes === '512x512' && i.purpose === 'maskable'), 'maskable 512 icon');
 });
 
-test('service worker precaches every script the app loads', async () => {
+test('service worker precaches every script and stylesheet the app loads', async () => {
   const sw = await (await fetch('../sw.js', { cache: 'no-store' })).text();
   const html = await (await fetch('../index.html', { cache: 'no-store' })).text();
-  const scripts = [...html.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
+  const scripts = [...html.matchAll(/<script src="([^"]+)"|<link rel="stylesheet" href="([^"]+)"/g)].map(m => m[1] || m[2]);
   assert(scripts.length > 5, 'found scripts in index.html');
   scripts.forEach(src => assert(sw.includes(`'${src}'`), `${src} missing from APP_FILES in sw.js`));
 });
