@@ -45,3 +45,9 @@ Also click through the screens you changed with the browser console open and che
 - Escape all user and patient text before inserting it as HTML.
 - No network calls that send data off the device.
 - Clinical values (calculator formulas, thresholds, expected test results) must cite a source.
+
+## License
+RoundingOS is licensed under the [Apache License, Version 2.0](LICENSE). By submitting a contribution you
+agree it is licensed under the same terms (section 5 of the license). Don't add code you can't license
+that way. When vendoring a library, keep its LICENSE and NOTICE files next to it, list it in
+`vendor/VERSIONS.md`, and add it to `NOTICE`.

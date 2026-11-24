@@ -87,3 +87,15 @@ Quick-Builder — 8 systems, ~150 findings, 31 condition presets with search. `p
 is a standalone preview of it.
 
 See `CHANGES.md` for the latest changes.
+
+## Medical disclaimer
+RoundingOS is a note-taking and organizing aid for clinicians. It is **not a medical device** and is not
+cleared or approved by any regulator. It does not replace clinical judgment. Verify every calculator
+result, score and threshold against the original source before acting on it. The software is provided
+"as is", without warranty of any kind (see sections 7 and 8 of the license).
+
+Until on-device encryption ships, data is stored unencrypted in the browser: **use test data only.**
+
+## License
+Licensed under the [Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE) for attribution.
+Third-party code in `vendor/` keeps its own license; see [vendor/VERSIONS.md](vendor/VERSIONS.md).

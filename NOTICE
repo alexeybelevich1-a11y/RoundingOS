@@ -1,0 +1,11 @@
+RoundingOS
+Copyright 2026 Alexey Belevich and RoundingOS contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes software developed by third parties:
+
+  Dexie.js 4.4.7 (vendor/dexie/)
+  Copyright (c) 2014-2017 David Fahlander
+  Licensed under the Apache License, Version 2.0.
+  See vendor/dexie/LICENSE and vendor/dexie/NOTICE.
