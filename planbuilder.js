@@ -1136,12 +1136,9 @@ const PlanBuilder = (() => {
         const wt = numVal(wtEl);
         if (!(wt >= 25)) return calcNeeds(resEl, 'pbApplyInsCalcBtn', ['weight (kg)']);
         calcReady('pbApplyInsCalcBtn');
-        const f = parseFloat(facEl.value) || 0.4;
-        const tdd = Math.round(wt * f);
-        const basal = Math.round(tdd * 0.5);
-        const prandial = Math.max(1, Math.round((tdd * 0.5) / 3));
-        resEl.innerHTML = `TDD <strong>${tdd} u</strong> · Basal <strong>${basal} u</strong> · Prandial <strong>${prandial} u</strong> TID`;
-        return { wt, f, tdd, basal, prandial };
+        const r = Calc.insulinTdd({ weightKg: wt, factor: parseFloat(facEl.value) || 0.4 });
+        resEl.innerHTML = `TDD <strong>${r.tdd} u</strong> · Basal <strong>${r.basal} u</strong> · Prandial <strong>${r.prandial} u</strong> TID`;
+        return r;
       };
       compute();
       wtEl.addEventListener('input', compute);
@@ -1188,11 +1185,9 @@ const PlanBuilder = (() => {
         const wt = numVal(stWt);
         if (!(wt >= 25)) return calcNeeds(stRes, 'pbApplyStCalcBtn', ['weight (kg)']);
         calcReady('pbApplyStCalcBtn');
-        const f = parseFloat(stFac.value) || 0.2;
-        const predMg = Math.round(f * 100);
-        const nph = Math.max(4, Math.round(wt * f));
-        stRes.innerHTML = `AM NPH: <strong>${nph} units</strong> (${predMg} mg pred eq)`;
-        return { wt, f, predMg, nph };
+        const r = Calc.steroidNph({ weightKg: wt, factor: parseFloat(stFac.value) || 0.2 });
+        stRes.innerHTML = `AM NPH: <strong>${r.nph} units</strong> (${r.predMg} mg pred eq)`;
+        return r;
       };
       computeSt();
       stWt.addEventListener('input', computeSt);
@@ -1227,15 +1222,11 @@ const PlanBuilder = (() => {
         if (!Number.isFinite(na)) return calcNeeds(naRes, 'pbApplyNaBtn', ['measured Na']);
         calcReady('pbApplyNaBtn');
         const glucRaw = numVal(naGluc);
-        const gluc = Number.isFinite(glucRaw) ? glucRaw : 100; // blank glucose = no correction (stated below)
-        const factor = gluc > 400 ? 2.4 : 1.6;
-        const corr = (na + Math.max(0, (gluc - 100) / 100) * factor).toFixed(1);
-        const limit = naOds?.checked ? 6 : 8;
-        // With significant hyperglycemia the correction limit is anchored to the glucose-corrected Na
-        const base = gluc > 200 ? parseFloat(corr) : na;
-        const cap = Math.round(base + limit);
-        naRes.innerHTML = `Corrected Na <strong>${corr}</strong>${Number.isFinite(glucRaw) ? '' : ' <span class="small-muted">(no glucose entered)</span>'} · 24h limit <strong>&le;+${limit} mEq/L</strong> (max <strong>${cap}</strong>${gluc > 200 ? ' from corrected Na' : ''})`;
-        return { na, gluc, corr, limit, cap };
+        // blank glucose = no correction (stated below)
+        const c = Calc.correctedNa({ na, glucose: Number.isFinite(glucRaw) ? glucRaw : null, highOdsRisk: Boolean(naOds?.checked) });
+        const corr = c.corrected.toFixed(1);
+        naRes.innerHTML = `Corrected Na <strong>${corr}</strong>${Number.isFinite(glucRaw) ? '' : ' <span class="small-muted">(no glucose entered)</span>'} · 24h limit <strong>&le;+${c.limit} mEq/L</strong> (max <strong>${c.cap}</strong>${c.capFromCorrected ? ' from corrected Na' : ''})`;
+        return { na, gluc: c.glucose, corr, limit: c.limit, cap: c.cap };
       };
       computeNa();
       [naVal, naGluc, naOds].forEach(x => x?.addEventListener('input', computeNa));
@@ -1265,8 +1256,9 @@ const PlanBuilder = (() => {
         if (!Number.isFinite(alb)) miss.push('albumin');
         if (miss.length) return calcNeeds(caRes, 'pbApplyCaBtn', miss);
         calcReady('pbApplyCaBtn');
-        const corr = parseFloat((ca + 0.8 * (4.0 - alb)).toFixed(1));
-        const sev = corr > 14 ? 'Severe' : corr >= 12 ? 'Moderate' : corr > 10.5 ? 'Mild' : 'Normal';
+        const c = Calc.correctedCa({ ca, albumin: alb });
+        const corr = c.corrected;
+        const sev = c.severity;
         caRes.innerHTML = `Corrected Ca <strong>${corr} mg/dL</strong> (${sev})`;
         return { ca, alb, corr, sev };
       };
@@ -1302,23 +1294,14 @@ const PlanBuilder = (() => {
         if (miss.length) return calcNeeds(agRes, 'pbApplyAgBtn', miss);
         calcReady('pbApplyAgBtn');
         const albRaw = numVal(agAlb);
-        const alb = Number.isFinite(albRaw) ? albRaw : 4.0; // blank albumin = no albumin correction
         const glucRaw = numVal(agGluc);
         const gluc = Number.isFinite(glucRaw) ? glucRaw : null;
-        const ag = Math.round(na - (cl + hco3));
-        const corrAg = parseFloat((ag + 2.5 * (4.0 - alb)).toFixed(1));
-        const dAg = corrAg - 12;
-        const dHco3 = 24 - hco3;
-        let ddStr = 'N/A';
-        let interp = 'Normal AG';
-        if (dAg > 0 && dHco3 > 0) {
-          const dd = dAg / dHco3;
-          ddStr = dd.toFixed(2);
-          interp = dd < 0.4 ? 'Pure NAGMA' : dd < 0.8 ? 'HAGMA + NAGMA' : dd <= 2.0 ? 'Pure HAGMA' : 'HAGMA + met alk/chronic resp acid';
-        } else if (dAg > 0) {
-          interp = 'HAGMA + metabolic alkalosis (HCO3 not reduced)';
-        }
-        if (!Number.isFinite(albRaw)) interp += '; no albumin entered';
+        // blank albumin = no albumin correction
+        const a = Calc.anionGap({ na, cl, hco3, albumin: Number.isFinite(albRaw) ? albRaw : null });
+        const { ag, corrAg } = a;
+        const ddStr = a.dd === null ? 'N/A' : a.dd.toFixed(2);
+        let interp = a.interp;
+        if (!a.albuminUsed) interp += '; no albumin entered';
         agRes.innerHTML = `AG <strong>${ag}</strong> (corr <strong>${corrAg}</strong>) · &Delta;/&Delta; <strong>${ddStr}</strong> (${interp})`;
         return { ag, corrAg, ddStr, interp, gluc };
       };
@@ -1340,8 +1323,8 @@ const PlanBuilder = (() => {
     if (curbRes) {
       const ids = ['pbCurbC', 'pbCurbU', 'pbCurbR', 'pbCurbB', 'pbCurb65'];
       const computeCurb = () => {
-        const score = ids.reduce((acc, id) => acc + (document.getElementById(id)?.checked ? 1 : 0), 0);
-        const risk = score <= 1 ? 'Low risk (outpt)' : score === 2 ? 'Moderate (inpatient)' : 'Severe (consider ICU)';
+        const on = id => Boolean(document.getElementById(id)?.checked);
+        const { score, risk } = Calc.curb65({ confusion: on('pbCurbC'), bun: on('pbCurbU'), rr: on('pbCurbR'), bp: on('pbCurbB'), age65: on('pbCurb65') });
         curbRes.innerHTML = `CURB-65: <strong>${score}/5</strong> — ${risk}`;
         return { score, risk };
       };
@@ -1366,31 +1349,16 @@ const PlanBuilder = (() => {
         const miss = Object.keys(vals).filter(k => !Number.isFinite(vals[k]) && !(k === 'Cr' && hd));
         if (miss.length) return calcNeeds(meldRes, 'pbApplyMeldBtn', miss);
         calcReady('pbApplyMeldBtn');
-        const bili = Math.max(1.0, vals.Bili);
-        const inr = Math.max(1.0, vals.INR);
-        const cr = hd ? 3.0 : Math.min(3.0, Math.max(1.0, vals.Cr));
-        const na = Math.min(137, Math.max(125, vals.Na));
-        const rawAlb = vals.Albumin;
-        const alb = Math.min(3.5, Math.max(1.5, rawAlb));
-        const fem = document.getElementById('pbMeldFem')?.checked ? 1 : 0;
-
-        const rawMeld = 1.33 * fem
-          + 4.56 * Math.log(bili)
-          + 0.82 * (137 - na)
-          - 0.24 * (137 - na) * Math.log(bili)
-          + 9.09 * Math.log(inr)
-          + 11.14 * Math.log(cr)
-          + 1.85 * (3.5 - alb)
-          - 1.83 * (3.5 - alb) * Math.log(cr)
-          + 6;
-        const meld3 = Math.min(40, Math.max(6, Math.round(rawMeld)));
+        const { meld3 } = Calc.meld3({
+          bili: vals.Bili, inr: vals.INR, cr: vals.Cr, na: vals.Na, albumin: vals.Albumin,
+          female: Boolean(document.getElementById('pbMeldFem')?.checked), dialysis: hd
+        });
 
         const ascVal = document.getElementById('pbSaagAscAlb')?.value;
         let saagText = '';
         if (ascVal !== '' && !isNaN(parseFloat(ascVal))) {
-          const saag = (rawAlb - parseFloat(ascVal)).toFixed(1);
-          const saagInterp = parseFloat(saag) >= 1.1 ? 'portal HTN' : 'non-portal HTN';
-          saagText = `${saag} (${saagInterp})`;
+          const s = Calc.saag(vals.Albumin, parseFloat(ascVal));
+          saagText = `${s.saag.toFixed(1)} (${s.portalHtn ? 'portal HTN' : 'non-portal HTN'})`;
         }
         meldRes.innerHTML = `MELD 3.0: <strong>${meld3}</strong>${meld3 >= 15 ? ' (transplant eval)' : ''}${saagText ? ` · SAAG <strong>${saagText}</strong>` : ''}`;
         return { meld3, saagText };
@@ -1417,21 +1385,22 @@ const PlanBuilder = (() => {
     // 8. CHA2DS2-VASc
     const chadsRes = document.getElementById('pbChadsResult');
     if (chadsRes) {
-      const items = [['pbChC',1],['pbChH',1],['pbChA2',2],['pbChD',1],['pbChS2',2],['pbChV',1],['pbChA',1],['pbChSc',1]];
+      const items = ['pbChC', 'pbChH', 'pbChA2', 'pbChD', 'pbChS2', 'pbChV', 'pbChA', 'pbChSc'];
       const computeChads = () => {
         // Mutual exclusion for age >=75 vs 65-74
         const a75 = document.getElementById('pbChA2');
         const a65 = document.getElementById('pbChA');
         if (a75?.checked && a65?.checked) a65.checked = false;
-        const score = items.reduce((acc, [id, pts]) => acc + (document.getElementById(id)?.checked ? pts : 0), 0);
-        const fem = Boolean(document.getElementById('pbChSc')?.checked);
-        const nonSex = score - (fem ? 1 : 0);
-        const rec = nonSex >= 2 ? 'OAC recommended' : nonSex === 1 ? 'Consider OAC' : 'Low risk (no OAC)';
+        const on = id => Boolean(document.getElementById(id)?.checked);
+        const { score, rec } = Calc.cha2ds2vasc({
+          chf: on('pbChC'), htn: on('pbChH'), age75: on('pbChA2'), diabetes: on('pbChD'),
+          strokeTia: on('pbChS2'), vascular: on('pbChV'), age65to74: on('pbChA'), female: on('pbChSc')
+        });
         chadsRes.innerHTML = `CHA2DS2-VASc: <strong>${score}</strong> — ${rec}`;
         return { score, rec };
       };
       computeChads();
-      items.forEach(([id]) => document.getElementById(id)?.addEventListener('change', computeChads));
+      items.forEach(id => document.getElementById(id)?.addEventListener('change', computeChads));
       document.getElementById('pbApplyChadsBtn')?.addEventListener('click', () => {
         const r = computeChads();
         pushCalcToModel(model, cs, /cha2ds2-vasc\s*$/i, `${r.score} (${r.rec})`, 'CHA2DS2-VASc');

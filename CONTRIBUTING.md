@@ -25,6 +25,7 @@ pnpm test    # runs tests/index.html in headless Chromium; exits non-zero if any
 ```
 
 To watch them in a browser, open `http://localhost:8000/tests/index.html` while `pnpm dev` runs.
+A test shown as `○ TODO` is waiting for a clinical value to be filled in from a cited source; it does not fail the run.
 All tests must be green before you open a pull request; GitHub Actions runs `pnpm test` on every pull request.
 Also click through the screens you changed with the browser console open and check for errors.
 

@@ -14,8 +14,8 @@ try {
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(url);
   await page.waitForFunction(() => document.title === 'PASS' || document.title === 'FAIL', null, { timeout: TIMEOUT_MS });
-  const results = await page.$$eval('#results li', (lis) => lis.map((li) => ({ ok: li.className === 'pass', text: li.textContent })));
-  for (const r of results) console.log(r.ok ? r.text : `\x1b[31m${r.text}\x1b[0m`);
+  const results = await page.$$eval('#results li', (lis) => lis.map((li) => ({ cls: li.className, text: li.textContent })));
+  for (const r of results) console.log(r.cls === 'pass' ? r.text : r.cls === 'todo' ? `\x1b[33m${r.text}\x1b[0m` : `\x1b[31m${r.text}\x1b[0m`);
   for (const e of errors) console.log(`\x1b[31mpage error: ${e}\x1b[0m`);
   console.log(await page.textContent('#summary'));
   code = (await page.title()) === 'PASS' && results.length > 0 ? 0 : 1;

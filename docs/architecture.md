@@ -15,7 +15,8 @@ Everything runs in the browser and all patient data stays on the device.
 | `progressnote.js` | `ProgressNoteEngine` | Builds the live progress note |
 | `exambuilder.js` | `ExamBuilder` | Physical Exam Quick-Builder |
 | `algorithms.js` | `ClinicalAlgorithms` | 10 branching clinical algorithms (pure data + functions, no DOM) |
-| `planbuilder.js` | `PlanBuilder` | Plan Builder templates and the bedside calculators |
+| `calc.js` | `Calc` | Bedside calculators as pure functions (numbers in, result out, `null` on missing input, no DOM) |
+| `planbuilder.js` | `PlanBuilder` | Plan Builder templates; draws the calculators and calls `Calc` |
 | `reminders.js` | `ReminderEngine` | Alarms and reminders |
 | `speech.js` | `SpeechEngine` | Web Speech recognition, dictation clean-up, voice-command parsing |
 | `signout.js` | `SignOutEngine` | I-PASS sign-out text |
@@ -57,8 +58,8 @@ The full plan is in [`plan.md`](plan.md). In short:
 - **PWA (phase 1, PR #2):** `manifest.json`, `sw.js` (cache-first, `CACHE_VERSION`, no auto-reload),
   `pwa.js` (install item, update toast), a strict Content-Security-Policy that blocks off-device requests.
   Hosted as code only on GitHub Pages. `server.ps1` and the `.bat` launcher go away.
-- **Calculators (phase 2):** `calc.js` holds each calculator as a pure function; `planbuilder.js` only wires the DOM.
-  Tests live in `tests/` (a browser test page, no dependencies).
+- **Calculators (phase 2, done):** `calc.js` holds each calculator as a pure function; `planbuilder.js` only wires the DOM.
+  Tests live in `tests/` (a browser test page, no dependencies): `calc.test.js`, `dictation.test.js`, `commands.test.js`.
 - **Encrypted storage (phase 3):** `store.js` (Dexie/IndexedDB, per-record AES-GCM, passphrase + recovery words)
   is the only code that touches storage or keys. `app.js` keeps its `state` object and `saveState()` callers;
   only load/save changes. `transfer.js` does export/import with merge.
