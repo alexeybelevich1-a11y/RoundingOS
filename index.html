@@ -5,7 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0f766e" />
   <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="RoundingOS" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <title>RoundingOS</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -34,6 +41,7 @@
       <div class="dropdown-menu hidden" id="toolsDropdown" role="menu">
         <button class="dropdown-item" id="openPlanBuilderBtn" role="menuitem">Plan Builder <kbd>Alt B</kbd></button>
         <button class="dropdown-item" id="voiceHelpBtn" role="menuitem">Voice commands &amp; vocabulary</button>
+        <button class="dropdown-item dropdown-check" id="voiceToggleBtn" role="menuitemcheckbox">Voice input (cloud)</button>
         <div class="dropdown-divider"></div>
         <div class="dropdown-label">Layout</div>
         <button class="dropdown-item dropdown-check" id="togglePatientPaneBtn" role="menuitemcheckbox">Patient panel</button>
@@ -43,16 +51,25 @@
         <div class="dropdown-divider"></div>
         <button class="dropdown-item" id="newDayBtn" role="menuitem">New hospital day…</button>
         <button class="dropdown-item" id="dataModalBtn" role="menuitem">Settings &amp; backup…</button>
+        <button class="dropdown-item" id="installAppBtn" role="menuitem">Install app…</button>
+        <button class="dropdown-item hidden" id="pwaUpdateBtn" role="menuitem">Update available — reload</button>
         <div class="dropdown-divider"></div>
         <div class="dropdown-label">Test data</div>
         <button class="dropdown-item" id="addTestPatientsBtn" role="menuitem">Add 14 test patients</button>
         <button class="dropdown-item" id="removeTestPatientsBtn" role="menuitem">Remove test patients</button>
         <button class="dropdown-item dropdown-item-danger" id="clearCensusQuickBtn" role="menuitem">Clear entire census…</button>
         <div class="dropdown-divider"></div>
+        <div class="dropdown-status hidden" id="storagePersistNote">The browser may clear this data under storage pressure. Install the app to keep it.</div>
         <div class="dropdown-status" id="storageBadge"><span class="storage-dot"></span><span id="storageBadgeText">Saved on this device</span></div>
       </div>
     </div>
   </header>
+
+  <!-- Test-data warning (removed once storage is encrypted) -->
+  <div class="testdata-banner hidden" id="testDataBanner" role="note">
+    <span>Not encrypted yet: use test patients only.</span>
+    <button type="button" class="testdata-banner-close" id="testDataBannerClose" aria-label="Hide until next launch">&times;</button>
+  </div>
 
   <!-- Live voice banner (only while the mic is on) -->
   <div class="voice-banner hidden" id="voiceBanner" role="status" aria-live="polite">
@@ -373,7 +390,7 @@
           <div class="form-group"><label for="setProviderName">Provider / team</label><input type="text" id="setProviderName" placeholder="Dr. Smith (Day Team A)" /></div>
           <div class="form-group"><label for="setServiceName">Service</label><input type="text" id="setServiceName" placeholder="Internal Medicine — Hospitalist" /></div>
         </div>
-        <p class="small-muted">All data stays on this computer (browser storage, plus <code>data/hospitalist-data.json</code> when started with the launcher).</p>
+        <p class="small-muted">All data stays in this device's browser storage. Storage is not encrypted yet: use test patients only.</p>
         <h4 class="section-label">Backup</h4>
         <div class="data-actions-grid">
           <button class="btn btn-primary" id="exportEncryptedBtn">Export encrypted (.rnos)</button>
@@ -625,8 +642,63 @@
     </div>
   </div>
 
+  <!-- ===================== Voice notice ===================== -->
+  <div class="modal-backdrop hidden" id="voiceConsentModal" role="dialog" aria-modal="true" aria-labelledby="voiceConsentTitle">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3 id="voiceConsentTitle">Turn on voice?</h3>
+        <button class="btn-close" data-close-modal="voiceConsentModal" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Voice uses Google/Apple/Microsoft speech servers: <strong>audio leaves this device</strong> while the mic is on.</p>
+        <p class="small-muted">Everything else stays on the device. You can turn voice off again in the ⋯ menu.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close-modal="voiceConsentModal">Not now</button>
+        <button class="btn btn-primary" id="voiceConsentOkBtn">Turn on voice</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Install app help ===================== -->
+  <div class="modal-backdrop hidden" id="installHelpModal" role="dialog" aria-modal="true" aria-labelledby="installHelpTitle">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3 id="installHelpTitle">Install RoundingOS</h3>
+        <button class="btn-close" data-close-modal="installHelpModal" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="installHelpOther">
+          <h4 class="section-label">Android (Chrome)</h4>
+          <ol>
+            <li>Tap the <strong>⋮</strong> menu at the top right of Chrome.</li>
+            <li>Tap <strong>Install app</strong> (or <strong>Add to Home screen</strong>, then <strong>Install</strong>).</li>
+            <li>Open RoundingOS from its home-screen icon. It works with no signal.</li>
+          </ol>
+          <h4 class="section-label">Laptop (Chrome or Edge)</h4>
+          <ol>
+            <li>Click the install icon at the right end of the address bar, or the browser menu → <strong>Install RoundingOS</strong>.</li>
+          </ol>
+        </div>
+        <div id="installHelpIos">
+          <h4 class="section-label">iPhone / iPad (Safari)</h4>
+          <ol>
+            <li>Open this page in <strong>Safari</strong>.</li>
+            <li>Tap <strong>Share</strong> (the square with an arrow).</li>
+            <li>Tap <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li>
+          </ol>
+        </div>
+        <p class="small-muted">The installed app keeps its own copy of the code and opens offline. Each device keeps its own data.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close-modal="installHelpModal">Close</button>
+      </div>
+    </div>
+  </div>
+
   <div id="printArea" class="print-only"></div>
 
+  <script src="pwa.js"></script>
   <script src="data.js"></script>
   <script src="crypto.js"></script>
   <script src="dotphrases.js"></script>

@@ -1,10 +1,7 @@
 # RoundingOS — changes from the review (2026-11-20)
 
-Drop these files over your current ones. `dotphrases.js` is your own file, included unchanged (193 templates, 12 SmartLists).
-`Start-Hospitalist-Tracker.bat` and `manifest.json` are unchanged too.
-
-Files: `dotphrases.js` (yours, unchanged), `index.html`, `styles.css`, `app.js`, `data.js`, `progressnote.js`, `planbuilder.js`,
-`reminders.js`, `signout.js`, `speech.js`, `server.ps1` (`crypto.js` unchanged, included for completeness).
+Changed: `index.html`, `styles.css`, `app.js`, `data.js`, `progressnote.js`, `planbuilder.js`,
+`reminders.js`, `signout.js`, `speech.js`, `server.ps1`. `dotphrases.js` (193 templates, 12 SmartLists) and `crypto.js` unchanged.
 
 Saved data migrates automatically: the legacy `weights` checklist key becomes `bm`, and the UI state is reset to the new layout once.
 
@@ -120,3 +117,29 @@ Changed: `index.html`, `styles.css`, `app.js`.
 - New **Sepia mode** in the ⋯ menu, beside Dark mode: a warm, low-glare background for panels and fields.
 - The choice is saved with your other settings. Turning Sepia off returns to Light mode.
 - Acuity colors and printouts are unchanged. The standalone `physical-exam-builder.html` preview stays in Light mode.
+
+---
+
+# RoundingOS v1.2 — Installable app, works offline (2026-11-24)
+
+New: `manifest.json`, `sw.js`, `pwa.js`, `icons/`, `physical-exam-builder.js`, `tests/`.
+Changed: `index.html`, `styles.css`, `app.js`, `data.js`, `speech.js`, `crypto.js`, `physical-exam-builder.html`, `README.md`.
+Removed: `server.ps1`, `Start-Hospitalist-Tracker.bat` (the app needs no local server).
+
+- **Install as an app** on Android (first), laptop (Chrome/Edge) and iPhone. ⋯ menu → **Install app…** opens Chrome's
+  install prompt where the browser offers one; otherwise it shows short steps for Android, laptop and iPhone.
+  Hidden once the app runs installed.
+- **Works offline.** A service worker keeps a copy of every app file, so the installed app opens in airplane mode.
+- **Updates never interrupt you.** A new version downloads in the background; a toast and a menu item say
+  **Update available**, and the app reloads only when you tap Reload.
+- **Empty census on first run.** Test patients load only from ⋯ → Add 14 test patients (or Load test patients).
+- **Voice is off by default.** The first mic tap (or ⋯ → Voice input) shows that audio goes to Google/Apple/Microsoft
+  speech servers; voice starts only after you turn it on. Turn it off again from the same menu item.
+- **"Not encrypted yet" banner** on every launch (× hides it until the next launch), plus the same note in the menu.
+- **Disk sync removed:** no `/api/data` calls; the badge says "Saved on this device". The app asks the browser to keep
+  its storage (`navigator.storage.persist()`) and says so in the menu if the browser refuses.
+- **Content-Security-Policy** on both pages: scripts only from the app itself, no network requests off the app's address.
+- `physical-exam-builder.html` loads `exambuilder.js` instead of carrying its own copy.
+- `tests/index.html`: smoke tests (empty first run, test patients, voice gate, manifest, precache list).
+  `tests/ui-baseline/`: screenshots of every main screen from before this change, laptop and phone.
+- Storage is unchanged and still **unencrypted**: test patients only until encrypted storage lands.
