@@ -4,7 +4,8 @@ test('fresh install opens to an empty census', async () => {
   try {
     const cards = app.doc.querySelectorAll('[data-patient-id], .patient-card');
     assertEqual(cards.length, 0, 'patient cards on first run');
-    const saved = JSON.parse(app.win.localStorage.getItem('roundingos_hospitalist_v1'));
+    assertEqual(app.doc.documentElement.dataset.storeReady, 'db', 'saves to the on-device database');
+    const saved = await waitFor(readAppDb, 4000, 'first save');
     assertEqual(saved.patients.length, 0, 'saved patients on first run');
     assertEqual(saved.voiceEnabled, false, 'voice is off by default');
   } finally { app.restore(); app.frame.remove(); }
@@ -14,8 +15,10 @@ test('"Add 14 test patients" still works', async () => {
   const app = await loadApp(null);
   try {
     app.doc.getElementById('addTestPatientsBtn').click();
-    await new Promise(r => setTimeout(r, 100));
-    const saved = JSON.parse(app.win.localStorage.getItem('roundingos_hospitalist_v1'));
+    const saved = await waitFor(async () => {
+      const s = await readAppDb();
+      return s && s.patients.length === 14 && s;
+    }, 4000, '14 saved patients');
     assertEqual(saved.patients.length, 14, 'patients after adding test data');
   } finally { app.restore(); app.frame.remove(); }
 });
