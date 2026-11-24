@@ -328,7 +328,12 @@
       applyLoadedState(getDefaultAppState());
       saveState();
     }
-    if (storageMode === 'db') Store.ensureDailySnapshot(state).catch(() => {});
+    if (storageMode === 'db') await Store.ensureDailySnapshot(state).catch(() => {});
+    await applyRetention().catch(() => {});
+    setInterval(() => applyRetention().catch(() => {}), 60 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') applyRetention().catch(() => {});
+    });
     document.documentElement.dataset.storeReady = storageMode;
     if (typeof ReminderEngine !== 'undefined') ReminderEngine.onStateLoaded();
   }
@@ -424,7 +429,14 @@
     return (patient.tasks || []).filter(t => !t.done && t.urgent).length;
   }
 
+  /** Patients on the census: archived (discharged) patients show only under the Archive filter. */
+  function activePatients() {
+    return state.patients.filter(Retention.isActive);
+  }
+
   function matchesFilter(p, f) {
+    if (f === 'archived') return Retention.isArchived(p);
+    if (Retention.isArchived(p)) return false;
     if (f === 'sick' || f === 'watcher' || f === 'discharge' || f === 'stable') return p.priority === f;
     if (f === 'unseen') return !p.checklist?.seen;
     if (f === 'unsigned') return !p.checklist?.note;
@@ -482,10 +494,11 @@
      Rendering — header summary & census
      ======================================================================== */
   function renderCensusSummary() {
-    const total = state.patients.length;
-    const sick = state.patients.filter(p => p.priority === 'sick').length;
-    const unseen = state.patients.filter(p => !p.checklist?.seen).length;
-    const unsigned = state.patients.filter(p => !p.checklist?.note).length;
+    const active = activePatients();
+    const total = active.length;
+    const sick = active.filter(p => p.priority === 'sick').length;
+    const unseen = active.filter(p => !p.checklist?.seen).length;
+    const unsigned = active.filter(p => !p.checklist?.note).length;
     const f = state.filterBy || 'all';
     const item = (key, label, cls = '') =>
       `<button type="button" class="sum-item ${cls} ${f === key ? 'is-active' : ''}" data-sum-filter="${key}">${label}</button>`;
@@ -554,7 +567,14 @@
     el.filterSelect.classList.toggle('is-filtered', (state.filterBy || 'all') !== 'all');
 
     if (list.length === 0) {
-      if (state.patients.length === 0) {
+      if (state.filterBy === 'archived') {
+        el.censusList.innerHTML = `
+          <div class="empty-state">
+            <p>No archived patients.</p>
+            <button class="btn btn-sm btn-secondary" id="clearFiltersInlineBtn">Show all</button>
+          </div>`;
+        $('clearFiltersInlineBtn')?.addEventListener('click', () => setFilter('all'));
+      } else if (activePatients().length === 0) {
         el.censusList.innerHTML = `
           <div class="empty-state">
             <p>No patients yet.</p>
@@ -675,7 +695,10 @@
                 <button type="button" class="dropdown-item" id="setPatientAlarmBtn">Set follow-up alarm</button>
                 <div class="dropdown-divider"></div>
                 <button type="button" class="dropdown-item" id="resetChecklistBtn">Reset today's checks</button>
-                <button type="button" class="dropdown-item dropdown-item-danger" id="deletePatientBtn">Remove from census…</button>
+                ${Retention.isDischarged(p)
+                  ? '<button type="button" class="dropdown-item" id="returnToCensusBtn">Return to census</button>'
+                  : '<button type="button" class="dropdown-item" id="dischargePatientBtn">Discharged: move to archive</button>'}
+                <button type="button" class="dropdown-item dropdown-item-danger" id="deletePatientBtn">${Retention.isArchived(p) ? 'Delete now…' : 'Remove from census…'}</button>
               </div>
             </div>
           </div>
@@ -684,6 +707,7 @@
         <div class="pt-flags">
           <span class="flag ${isFullCode ? 'flag-quiet' : 'flag-code'}">${esc(p.codeStatus || 'Code status not set')}</span>
           <span class="flag ${allergy.cls}">${allergy.cls === 'flag-allergy' ? 'Allergy: ' : ''}${esc(allergy.text)}</span>
+          ${dischargeFlag(p)}
         </div>
       </div>
 
@@ -1166,8 +1190,13 @@
       ReminderEngine?.openModal(p);
     });
     $('editPatientBtn')?.addEventListener('click', () => openPatientModal(p));
+    $('dischargePatientBtn')?.addEventListener('click', () => dischargePatient(p));
+    $('returnToCensusBtn')?.addEventListener('click', () => returnPatientToCensus(p));
     $('deletePatientBtn')?.addEventListener('click', () => {
-      if (!confirm(`Remove ${p.name} (Rm ${p.room}) from the census?`)) return;
+      const question = Retention.isArchived(p)
+        ? `Delete ${p.name} (Rm ${p.room}) now instead of waiting for automatic deletion?`
+        : `Remove ${p.name} (Rm ${p.room}) from the census?`;
+      if (!confirm(question)) return;
       const idx = state.patients.findIndex(x => x.id === p.id);
       state.patients.splice(idx, 1);
       ReminderEngine?.unlinkPatient?.(p.id);
@@ -1182,6 +1211,73 @@
         }
       });
     });
+  }
+
+  /* ---- Discharge → archive → automatic deletion (rules in src/core/retention.js) */
+  function shortDate(d) {
+    return new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+
+  function dischargeFlag(p) {
+    if (!Retention.isDischarged(p)) return '';
+    const r = Retention.settingsOf(state);
+    const text = Retention.isArchived(p)
+      ? `Archived · deletes ${shortDate(Retention.deleteDate(p, r))}`
+      : `Discharged ${shortDate(p.dischargedAt)} · moves to archive in ${r.archiveAfterDays} day${r.archiveAfterDays === 1 ? '' : 's'}`;
+    return `<span class="flag flag-unknown">${esc(text)}</span>`;
+  }
+
+  function dischargePatient(p) {
+    const r = Retention.settingsOf(state);
+    Retention.discharge(p, r);
+    touch(p);
+    if (Retention.isArchived(p) && state.filterBy !== 'archived') {
+      state.selectedPatientId = activePatients()[0]?.id || null;
+    }
+    saveState();
+    renderAll();
+    showToast(Retention.isArchived(p)
+      ? `${p.name} moved to the archive (deleted after ${r.deleteAfterDays} days)`
+      : `${p.name} marked discharged`, 'info', {
+      label: 'Undo',
+      onClick: () => returnPatientToCensus(p, true)
+    });
+  }
+
+  function returnPatientToCensus(p, quiet = false) {
+    if (!state.patients.includes(p)) return;
+    Retention.returnToCensus(p);
+    touch(p);
+    if (state.filterBy === 'archived') state.filterBy = 'all';
+    state.selectedPatientId = p.id;
+    saveState();
+    applyUiShellState();
+    renderAll();
+    if (!quiet) showToast(`${p.name} is back on the census`);
+  }
+
+  /** Archives and deletes what is due. Runs at startup, new day, settings save and hourly. */
+  async function applyRetention() {
+    if (storageMode === 'loading') return;
+    const r = Retention.settingsOf(state);
+    const { toArchive, toDelete } = Retention.due(state.patients, r);
+    if (!toArchive.length && !toDelete.length) return;
+    const nowIso = new Date().toISOString();
+    toArchive.forEach(p => { p.archivedAt = nowIso; touch(p); });
+    if (toDelete.length) {
+      const ids = new Set(toDelete.map(p => p.id));
+      toDelete.forEach(p => ReminderEngine?.unlinkPatient?.(p.id));
+      state.patients = state.patients.filter(p => !ids.has(p.id));
+      if (ids.has(state.selectedPatientId)) state.selectedPatientId = activePatients()[0]?.id || null;
+    }
+    saveState();
+    renderAll();
+    if (toDelete.length) {
+      await flushSave();
+      // also out of saved copies, so a restore cannot bring a deleted patient back
+      if (storageMode === 'db') await Store.scrubSnapshots(toDelete.map(p => p.id)).catch(() => {});
+      showToast(`Deleted ${toDelete.length} archived patient${toDelete.length === 1 ? '' : 's'} (${r.deleteAfterDays} days after archiving)`);
+    }
   }
 
   function renderAll() {
@@ -1511,7 +1607,7 @@
   });
 
   function handleVoiceCommand(transcript) {
-    const cmd = SpeechEngine.parseVoiceCommand(transcript, state.patients);
+    const cmd = SpeechEngine.parseVoiceCommand(transcript, activePatients());
     const activePt = getSelectedPatient();
     const needPt = () => { if (!activePt) showToast('Select a patient first', 'error'); return Boolean(activePt); };
 
@@ -1624,6 +1720,7 @@
     if (!ok) return;
     const DAILY = ['vitalsSummary', 'labsSummary', 'ioSummary', 'weightSummary', 'imagingSummary'];
     state.patients.forEach(p => {
+      if (Retention.isDischarged(p)) return; // discharged and archived patients keep their last day
       p.hospitalDay = (Number(p.hospitalDay) || 1) + 1;
       p.checklist = createEmptyChecklist();
       p.tasks = (p.tasks || []).filter(t => !t.done);
@@ -1640,6 +1737,7 @@
     saveState();
     renderAll();
     showToast('New hospital day started');
+    applyRetention();
   });
 
   /* ========================================================================
@@ -1649,16 +1747,28 @@
     closeToolsMenu();
     el.setProviderName.value = state.providerName || '';
     el.setServiceName.value = state.serviceName || '';
+    const r = Retention.settingsOf(state);
+    $('setArchiveAfter').value = String(r.archiveAfterDays);
+    $('setDeleteAfter').value = String(r.deleteAfterDays);
     openModal(el.dataModal);
   });
 
   $('saveSettingsBtn').addEventListener('click', () => {
     state.providerName = el.setProviderName.value.trim() || 'Hospitalist';
     state.serviceName = el.setServiceName.value.trim() || 'Hospitalist Service';
+    const retention = Retention.settingsOf({ retention: {
+      archiveAfterDays: Number($('setArchiveAfter').value),
+      deleteAfterDays: Number($('setDeleteAfter').value)
+    } });
+    const dueNow = Retention.due(state.patients, retention).toDelete.length;
+    if (dueNow && !confirm(`With this setting, ${dueNow} archived patient${dueNow === 1 ? ' is' : 's are'} deleted now. Continue?`)) return;
+    state.retention = retention;
     el.serviceHeaderLabel.textContent = state.serviceName;
     saveState();
     closeModal(el.dataModal);
     showToast('Settings saved');
+    renderAll();
+    applyRetention().catch(() => {});
   });
 
   /** Masked passphrase dialog (replaces prompt()). Resolves to the passphrase or null. */
@@ -1788,6 +1898,79 @@
       e.target.value = '';
     };
     reader.readAsText(file);
+  });
+
+  /* ---- Saved copies (snapshots): browse, restore with undo, delete */
+  const SNAPSHOT_REASONS = {
+    daily: 'Daily copy',
+    'before import': 'Before import',
+    'before clear census': 'Before clearing the census',
+    'before restore': 'Before restoring a saved copy',
+    'before loading test patients': 'Before loading test patients',
+    'before migration': 'Before moving to the on-device database',
+    'before import (old storage)': 'Before an import (old storage)'
+  };
+
+  async function renderSnapshotList() {
+    const box = $('snapshotList');
+    if (storageMode !== 'db') {
+      box.innerHTML = '<p class="small-muted">Saved copies need the on-device database, which is not available in this browser.</p>';
+      return;
+    }
+    let rows = [];
+    try { rows = await Store.listSnapshots(); } catch (e) { rows = []; }
+    if (!rows.length) { box.innerHTML = '<p class="small-muted">No saved copies yet.</p>'; return; }
+    box.innerHTML = rows.map(r => {
+      const when = new Date(r.createdAt).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const count = r.patientCount == null ? '' : ` · ${r.patientCount} patient${r.patientCount === 1 ? '' : 's'}`;
+      return `
+        <div class="snapshot-row" data-snapshot-id="${esc(r.id)}">
+          <div class="snapshot-info">
+            <span class="snapshot-when">${esc(when)}</span>
+            <span class="small-muted">${esc(SNAPSHOT_REASONS[r.reason] || r.reason)}${esc(count)}</span>
+          </div>
+          <div class="snapshot-actions">
+            <button type="button" class="btn btn-sm btn-secondary" data-restore-snapshot="${esc(r.id)}">Restore</button>
+            <button type="button" class="btn btn-sm btn-ghost warn-text" data-delete-snapshot="${esc(r.id)}">Delete</button>
+          </div>
+        </div>`;
+    }).join('');
+    box.querySelectorAll('[data-restore-snapshot]').forEach(b => b.addEventListener('click', () => {
+      const row = rows.find(r => String(r.id) === b.dataset.restoreSnapshot);
+      if (row) restoreSavedCopy(row);
+    }));
+    box.querySelectorAll('[data-delete-snapshot]').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm('Delete this saved copy? This cannot be undone.')) return;
+      try { await Store.deleteSnapshot(Number(b.dataset.deleteSnapshot)); showToast('Saved copy deleted'); }
+      catch (e) { showToast('Could not delete the saved copy.', 'error'); }
+      renderSnapshotList();
+    }));
+  }
+
+  async function restoreSavedCopy(row) {
+    const when = new Date(row.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const count = row.patientCount == null ? '' : ` (${row.patientCount} patients)`;
+    if (!confirm(`Replace everything on this device with the copy from ${when}${count}?\n\nYour current data is saved first, so you can undo.`)) return;
+    try {
+      const saved = await Store.restoreSnapshot(row.id);
+      if (!saved || !Array.isArray(saved.patients)) throw new Error('empty');
+      await flushSave();
+      const undoId = await takeSnapshot('before restore');
+      applyLoadedState(saved);
+      saveState();
+      closeModal($('snapshotsModal'));
+      closeModal(el.dataModal);
+      applyRetention().catch(() => {});
+      showToast(`Restored ${state.patients.length} patients from ${when}`, 'info',
+        undoId ? { label: 'Undo', onClick: () => undoSnapshot(undoId) } : undefined);
+    } catch (e) {
+      showToast('Could not restore: the saved copy is missing or damaged.', 'error');
+    }
+  }
+
+  $('openSnapshotsBtn').addEventListener('click', () => {
+    openModal($('snapshotsModal'));
+    renderSnapshotList();
   });
 
   $('resetDemoBtn').addEventListener('click', () => {

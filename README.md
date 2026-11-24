@@ -23,6 +23,12 @@ A fresh install starts with an **empty census**. ⋯ → **Add 14 test patients*
   `src/core/store.js`). The first start after the update moves older data out of `localStorage` and deletes the
   old copy only after checking the move. The web address serves code only;
   nothing is uploaded. The app's Content-Security-Policy blocks network requests to any other address.
+- **Discharged patients:** Actions → *Discharged: move to archive* takes a patient off the census (the census
+  filter's *Archive* option still shows them, and *Return to census* brings them back). Archived patients are
+  deleted from the device after 30 days, including from saved copies. Both times are in ⋯ → Settings & backup.
+  "Discharge today" never archives or deletes anyone.
+- **Saved copies:** the app keeps the last 7 copies of all data (daily, and before an import, a restore or clearing
+  the census). ⋯ → Settings & backup → *Saved copies…* lists them; you can restore one (with Undo) or delete it.
 - Each device keeps its own data. The app asks the browser to keep its storage (`navigator.storage.persist()`).
   On iPhone, use the installed app, not a Safari tab, or Safari may clear the data after 7 days unused.
 - **Voice is off by default.** Turning it on (⋯ → Voice input) shows a notice: browser speech recognition
@@ -45,7 +51,7 @@ manifest.json  sw.js        PWA manifest and service worker (must stay at the ro
 styles/styles.css           all styles (light, dark, sepia)
 icons/                      app icons
 src/
-  core/       app.js (controller, loads last)  data.js  crypto.js  pwa.js
+  core/       app.js (controller, loads last)  data.js  crypto.js  store.js  retention.js  transfer.js  pwa.js
   clinical/   calc.js (calculators)  algorithms.js  dotphrases.js (templates)
   features/   planbuilder.js  progressnote.js  exambuilder.js  physical-exam-builder.js  reminders.js  signout.js
   speech/     speech.js (dictation clean-up, voice commands)

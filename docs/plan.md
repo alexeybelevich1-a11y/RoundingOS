@@ -2,7 +2,7 @@
 
 *Written 2026-11-24 against `main` at `5a939f7`.*
 *Revised the same day at Anton's request: PWA first (Android first), then calculators, then the on-device database, then encryption as its own phase, then on-device voice.*
-*Status: phases 1 and 2 are merged (PRs #2–#6), apart from the manual checks.*
+*Status: phases 1 and 2 are merged (PRs #2–#6), apart from the manual checks. Phase 3 is merged (PR #8) and its last two pieces (discharge archive, saved copies screen) are in review. Phase 4 (encryption) is on hold at Anton's request.*
 
 Individual tasks are tracked separately (planned as GitHub issues). This file is the design and order of work; update it when a decision changes.
 
@@ -146,7 +146,7 @@ Database `roundingos`, Dexie version 1. Every data row has the same shape: a few
 | `meta` | `key` | Schema version, `codec` in use (`"plain"` in phase 3), and in phase 4 the wrapped keys, salt and iterations |
 | `patients` | `id`, `updatedAt`, `purgeAfter`, `codec` | The whole patient record |
 | `settings` | `key` (one row, `"app"`), `codec` | Everything in `state` except `patients`: provider/service names, theme, UI state, dot phrases, Plan Builder settings, reminders, custom vocab |
-| `snapshots` | `id`, `createdAt`, `reason`, `codec` | A full copy of `state`, taken before an import, before "clear census", and once a day. The last 7 are kept. |
+| `snapshots` | `id`, `createdAt`, `reason`, `patientCount`, `codec` | A full copy of `state`, taken before an import, a restore, "clear census", and once a day. The last 7 are kept. |
 | `tombstones` | `id`, `deletedAt` | None. It records only that a patient id was deleted, for the merge. |
 
 In phase 3, `codec` is `"plain"` and `payload` is the record itself. Names and MRNs are therefore readable in DevTools, exactly as they are in `localStorage` today. In phase 4, `codec` becomes `"aes-gcm-1"` and `payload` becomes `{ iv, ct }`.
@@ -160,7 +160,8 @@ Store.save(state)         // writes only records that changed
 Store.snapshot(reason)    // full copy of state
 Store.listSnapshots()
 Store.restoreSnapshot(id)
-Store.purgeDischarged(days)
+Store.deleteSnapshot(id)
+Store.scrubSnapshots(patientIds)  // removes deleted patients from every saved copy
 // phase 4 adds: status(), setup(), unlock(), unlockWithRecovery(), lock(), sealAll()
 ```
 
@@ -172,7 +173,14 @@ Inside `app.js`, `saveState()` keeps its name and stays synchronous for its ~70 
 
 **Two tabs:** the `storage` event goes away along with `localStorage`. A `BroadcastChannel('roundingos')` replaces it: after a save, the tab posts "changed", and the other tab reloads its state from the store, as the current code does.
 
-**Discharge purge:** when a patient's dispo becomes discharged, `purgeAfter` is set to now + N days (default 3, changeable in settings). `Store.purgeDischarged` runs at startup and at the new-day rollover.
+**Discharged patients: archive, then delete** (decided 2026-11-24, replaces the earlier "purge after 3 days"):
+
+- A patient is discharged only when you choose **Actions → Discharged: move to archive**. The "Discharge today" priority and the disposition text never trigger anything.
+- **Stage 1, archive.** Archived patients leave the census: the list, header counts, sign-out, new-day rollover and voice commands skip them. The census filter has an **Archive** option that lists them; **Actions → Return to census** brings one back, and the discharge toast has Undo. Setting *Move to archive*: right away (default), after 1 day or after 2 days. Until then the patient stays on the census with a "Discharged" flag.
+- **Stage 2, delete.** *Delete from archive after*: 7, 14, **30 (default)**, 60 or 90 days. When due, the patient is removed from the database (with a tombstone, so a merge import keeps them deleted) and from every saved copy (`Store.scrubSnapshots`), so a restore cannot bring them back. Lowering the setting asks first if it would delete anyone right away.
+- Rules live in `src/core/retention.js` (pure functions). `app.js` runs them at startup, at the new-day rollover, after Settings → Save, when the app comes back to the foreground, and hourly. The patient fields are `dischargedAt` and `archivedAt`; the dates are worked out from the current settings, so changing a setting applies to everyone already archived. The `purgeAfter` index stays unused (no schema change).
+
+**Saved copies screen:** Settings & backup → **Saved copies…** lists the snapshots (date, reason, patient count; newest first). **Restore** asks first, saves the current data as a new copy ("before restore"), replaces everything, and offers Undo in the toast. **Delete** asks first. Snapshot rows also store `patientCount` (a number only) so the list needs no decoding.
 
 ### Data migration (localStorage → database)
 
@@ -209,7 +217,7 @@ Automated (`pnpm test`, against a throwaway database `roundingos-test`):
 - Every row goes through `encodeRecord`/`decodeRecord` (a test swaps in a fake codec and checks that no row is written without it).
 - Migration: counts match, the old keys are deleted only after the verify, and a forced failure leaves `localStorage` untouched.
 - Merge: newer wins, tombstones keep deleted patients deleted, and re-importing the same file changes nothing.
-- Purge removes only discharged patients past their window; restoring a snapshot gives back the earlier state.
+- Only patients marked discharged are archived, and only archived patients past their window are deleted, including from saved copies; restoring a snapshot gives back the earlier state, and Undo reverses the restore.
 
 Manual, on both devices:
 - Updating a phase-1 install keeps the same census, and `localStorage` no longer holds patient data.
@@ -356,7 +364,7 @@ Run on both devices after phase 4, before any real patient. Re-run the voice ite
 - [ ] IndexedDB and `localStorage` contain no readable patient text
 - [ ] A wrong passphrase fails; the recovery words work
 - [ ] Laptop export → phone import: counts match, no duplicates, re-import is a no-op
-- [ ] A discharged test patient is gone after the purge window
+- [ ] A discharged test patient goes to the Archive, and is gone (also from Saved copies) after the delete window
 - [ ] Screens match the screenshots taken before phase 1
 
 ## Decisions for you

@@ -2530,3 +2530,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px;
   .note-opts-btn span { display: none; }
   .note-opts-btn { padding: 4px 7px; }
 }
+
+/* Saved copies (Settings & backup → Saved copies…) */
+.snapshot-list { display: flex; flex-direction: column; gap: var(--s2); }
+.snapshot-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); padding: var(--s2) var(--s3); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.snapshot-info { display: flex; flex-direction: column; min-width: 0; }
+.snapshot-when { font-weight: 600; }
+.snapshot-actions { display: flex; gap: var(--s2); flex-shrink: 0; }
