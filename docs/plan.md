@@ -1,25 +1,27 @@
 # RoundingOS: local-first implementation plan
 
-*Written 2026-11-24 against `main` at `5a939f7`. Phase 1 (PWA) is in progress in PR #2.*
-*Revised the same day at Anton's request: PWA first (Android first), then calculators, then encryption, with on-device voice as its own last phase.*
+*Written 2026-11-24 against `main` at `5a939f7`.*
+*Revised the same day at Anton's request: PWA first (Android first), then calculators, then the on-device database, then encryption as its own phase, then on-device voice.*
+*Status: phases 1 and 2 are merged (PRs #2–#6), apart from the manual checks.*
 
 Individual tasks are tracked separately (planned as GitHub issues). This file is the design and order of work; update it when a decision changes.
 
 ## The short version
 
-Four phases. After each one the app works:
+Five phases. After each one the app works:
 
 | Phase | What you get | Rough size |
 |---|---|---|
 | **1. Installable PWA, offline (Android first)** | RoundingOS installs from GitHub Pages onto the laptop and an Android phone and runs in airplane mode. iPhone instructions are included, tested after Android. Empty census on first run. Local server retired. Cloud voice off by default. | 2–3 days |
 | **2. Tested calculators** | Calculator math moves into pure functions with known-answer tests, plus tests for dictation clean-up and voice commands. | 1–2 days |
-| **3. Encrypted storage + device transfer** | Patient data moves from the plaintext `localStorage` blob to an encrypted on-device database. Export/import between phone and laptop merges changes instead of overwriting. | 4–5 days |
-| **4. On-device voice** | Voice runs on the device: Vosk for commands, Whisper/Moonshine for dictation. Cloud speech only as an explicit opt-in. | 3–4 days |
+| **3. On-device database + device transfer** | Patient data moves from the single `localStorage` blob to an IndexedDB database (Dexie), one record per patient. Export/import between phone and laptop merges changes instead of overwriting. Still unencrypted. | 3–4 days |
+| **4. Encryption** | Passphrase unlock, recovery words, every record encrypted (AES-GCM), stronger encrypted export. No new migration: phase 3's database is built for it. | 2–3 days |
+| **5. On-device voice** | Voice runs on the device: Vosk for commands, Whisper/Moonshine for dictation. Cloud speech only as an explicit opt-in. | 3–4 days |
 | Later, optional | Tauri (desktop) or Capacitor (app stores) wrapper, only if the PWA hits a hard wall. | 3–5 days each |
 
-> ⚠️ **No real patient data until phase 3 ships and passes its checks.** Until then, everything the app stores sits in plain text in the browser's `localStorage` on each device. Phases 1 and 2 are for test patients only. The README and a small banner in the app say this until phase 3 removes it.
+> ⚠️ **No real patient data until phase 4 ships and passes its checks.** Until then, everything the app stores sits in plain text on each device: in `localStorage` during phases 1–2, and in IndexedDB during phase 3. Phases 1–3 are for test patients only. The README and a small banner in the app say this until phase 4 removes it.
 >
-> Between phases 3 and 4, real patients are fine, but keep **Voice set to Off**. Cloud voice sends audio to Google/Apple/Microsoft, and on-device voice arrives only in phase 4.
+> Between phases 4 and 5, real patients are fine, but keep **Voice set to Off**. Cloud voice sends audio to Google/Apple/Microsoft, and on-device voice arrives only in phase 5.
 
 **Ground rules for every phase** (from your decisions):
 - Plain JS, `<script>` tags, no React, no runtime npm packages, no build step (pnpm only for dev tooling: local server and headless tests). Libraries are copied into `vendor/`, with their exact versions noted in `vendor/VERSIONS.md`. No CDN at runtime.
@@ -27,7 +29,7 @@ Four phases. After each one the app works:
 - The app keeps its in-memory `state` object. Only how `state` is saved and loaded changes, so the ~70 `saveState()` calls across the code stay as they are.
 - Every phase ends with a commit and a short manual check on both devices.
 
-This replaces the earlier 5-phase plan doc (2026-11-21, written against the old local folder). Most of its content carries over, regrouped into four phases and checked against what's in the repo now.
+This replaces the earlier 5-phase plan doc (2026-11-21, written against the old local folder). Most of its content carries over, regrouped into five phases and checked against what's in the repo now.
 
 ---
 
@@ -46,7 +48,7 @@ This replaces the earlier 5-phase plan doc (2026-11-21, written against the old 
 | `index.html` | Registers `sw.js`. Adds a Content-Security-Policy `<meta>`: `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; img-src 'self' data:; connect-src 'self'`. With it, the browser itself blocks any request that would leave the device. Also adds the `apple-touch-icon` and `theme-color` tags. |
 | `app.js` | Removes the disk-sync code: the `/api/data` calls, `diskSyncAvailable`, and `API_HEADERS`. The storage badge always says "Saved on this device". Calls `navigator.storage.persist()` at startup, so the browser doesn't evict the data. Adds an **"Install app"** item inside the existing menu. On Android Chrome (the first target) and desktop Chrome/Edge it triggers the browser's install prompt (`beforeinstallprompt`). On iPhone, Safari has no install prompt, so the same item opens short instructions instead: Share → Add to Home Screen. When the app is already installed, the item is hidden. The "Load test patients" button (`resetDemoBtn`, ~line 1686) calls `getInitialTestPatients()` directly. |
 | `data.js` | `getDefaultAppState()` returns `patients: []` and `selectedPatientId: null`. Today it seeds the 14 test patients (line 593). Test patients load only from the existing Test data menu item. |
-| `speech.js` / settings | **Stopgap:** the mic is off by default. The first time it's turned on, a one-time notice says "Voice uses Google/Apple/Microsoft speech servers; audio leaves this device." Phase 4 replaces this with on-device engines. |
+| `speech.js` / settings | **Stopgap:** the mic is off by default. The first time it's turned on, a one-time notice says "Voice uses Google/Apple/Microsoft speech servers; audio leaves this device." Phase 5 replaces this with on-device engines. |
 | `physical-exam-builder.html` | Loads `exambuilder.js` instead of carrying its own copy, so the cached app has one source of truth. |
 | `server.ps1`, `Start-Hospitalist-Tracker.bat` | **Deleted.** The PWA needs no local server. |
 | `README.md` | Rewritten: how to install on laptop and phone, where data lives, how to back up, how to release an update (bump `CACHE_VERSION`), and an honest privacy line: data is not encrypted yet, test patients only. |
@@ -64,7 +66,7 @@ Browser storage belongs to one web address. The installed app at `https://<you>.
 
 As of the 2026-11-21 review the old data held only the 14 test patients. If that's still true, skip the import and start empty.
 
-The data now lives in `localStorage['roundingos_hospitalist_v1']` at the GitHub Pages address, in the same format as today. Phase 3 migrates it from there into the encrypted database.
+The data now lives in `localStorage['roundingos_hospitalist_v1']` at the GitHub Pages address, in the same format as today. Phase 3 migrates it from there into IndexedDB, and phase 4 encrypts it in place.
 
 **Phone and laptop until phase 3:** each install has its own data. To move it, use encrypted export → import, which replaces the whole census on the receiving device. Merging comes in phase 3.
 
@@ -72,7 +74,7 @@ The data now lives in `localStorage['roundingos_hospitalist_v1']` at the GitHub 
 
 | Risk | Mitigation |
 |---|---|
-| Plain-text data on two devices now | Test patients only, stated in the README and an in-app banner, until phase 3. |
+| Plain-text data on two devices now | Test patients only, stated in the README and an in-app banner, until phase 4. |
 | Stale cached code after a fix | Bump `CACHE_VERSION` on every release, and show the update banner. The release steps are in the README. |
 | Storage being cleared | `persist()` protects it on Android Chrome. On iPhone, installed PWAs are exempt from Safari's 7-day eviction. Use the installed app, not a browser tab. |
 | iPhone differences | iPhone is second, so the plan doesn't depend on it. Its install item shows instructions only. Check the offline behavior there once Android passes. |
@@ -103,7 +105,7 @@ The data now lives in `localStorage['roundingos_hospitalist_v1']` at the GitHub 
 | `planbuilder.js` | The calculator wiring (around lines 1130–1410: `computeCurb`, `computeMeld`, and the Na/Ca/AG/insulin/steroid blocks) reads its inputs from the DOM, calls `Calc.*`, and renders exactly the same HTML as today. |
 | `index.html` / `sw.js` | Add `calc.js` before `planbuilder.js`, and add it to the cache list. |
 | `tests/calc.test.js` | Known-answer cases, 3–5 per calculator, plus a regression case for each calculator bug listed in `CHANGES.md`. |
-| `tests/dictation.test.js`, `tests/commands.test.js` | These protect phase 4's voice work. Tests for `formatMedicalDictation` and `parseVoiceCommand`: one case per command type, plus the known traps ("sigmoid colon", "as part of", and "set dispo discharge to SNF", which must set dispo, not priority). |
+| `tests/dictation.test.js`, `tests/commands.test.js` | These protect phase 5's voice work. Tests for `formatMedicalDictation` and `parseVoiceCommand`: one case per command type, plus the known traps ("sigmoid colon", "as part of", and "set dispo discharge to SNF", which must set dispo, not priority). |
 | `tests/algorithms.test.js` | Optional: a few path-through cases for the 10 branching algorithms in `algorithms.js`. |
 
 **Rule for clinical values:** every expected number in `calc.test.js` carries a comment naming its source, for example an MDCalc result you entered. Whoever writes the tests leaves a `TODO` for each expected value rather than inventing one, and you fill or confirm them.
@@ -118,120 +120,171 @@ None. Only code moves.
 
 ---
 
-## Phase 3 · Encrypted storage + device transfer (the gate for real patients)
+## Phase 3 · On-device database + device transfer (still unencrypted)
 
-**Goal:** no readable patient data anywhere on the device. A lost laptop or phone, or a copied browser profile, exposes nothing without your passphrase. Moving data between devices merges instead of overwriting.
+**Goal:** patient data moves out of the single `localStorage` blob into an IndexedDB database with one record per patient, and moving data between devices merges instead of overwriting. The data is **not encrypted yet**, so the "test data only" rule stays.
+
+The database is designed so that phase 4 can add encryption **without another migration**: the tables, keys and indexes stay the same, and only what's inside each record's payload changes.
 
 ### What changes, file by file
 
 | File | Change |
 |---|---|
-| `vendor/dexie.min.js` | **New.** A local copy of Dexie 4.x (~100 KB). |
-| `store.js` | **New, ~300 lines.** The only code that touches the database or the encryption keys. Its API is below. |
-| `crypto.js` | Keeps the export/import format. New files use 600,000 PBKDF2 iterations instead of 150,000. When opening a file, it reads `iterations` from the envelope, so old exports still open. It also gains two helpers that `store.js` needs: one wraps and unwraps a data key, the other encrypts and decrypts with an existing key. |
-| `app.js` | Replaces the persistence block (`saveState`, `loadInitialState` and the `storage` listener, lines ~163–260). Import stops writing `roundingos_pre_import_snapshot` to `localStorage` and calls `Store.snapshot()` instead. The Export and Import buttons call `transfer.js`. Their place in the UI doesn't change. |
-| `transfer.js` | **New, ~200 lines.** `exportCensus()`, `importCensus(file)` and `mergeStates(local, incoming)`. |
-| `index.html` / `sw.js` | Add the new scripts, and add them to the cache list. Add one unlock/setup modal, using the same markup pattern and classes as the existing passphrase modal. Remove the "not encrypted, test data only" banner. |
+| `vendor/dexie.min.js` | **New.** A local copy of Dexie 4.x (~100 KB), pinned in `vendor/VERSIONS.md`. |
+| `src/core/store.js` | **New, ~250 lines.** The only code that touches the database. Its API is below. |
+| `src/core/app.js` | Replaces the persistence block (`saveState`, `loadInitialState` and the `storage` listener, ~lines 159–230). Import stops writing `roundingos_pre_import_snapshot` to `localStorage` and calls `Store.snapshot()` instead. The Export and Import buttons call `transfer.js`. Their place in the UI doesn't change. |
+| `src/core/transfer.js` | **New, ~200 lines.** `exportCensus()`, `importCensus(file)` and `mergeStates(local, incoming)`. Export keeps using the existing encrypted file format from `crypto.js`, as today. |
+| `index.html` / `sw.js` | Add the new scripts in order (`vendor/dexie.min.js`, `store.js`, `transfer.js` before `app.js`), and add them to `APP_FILES`. Add one import-summary modal, using the existing modal markup and classes. |
 | `tests/store.test.js`, `tests/migration.test.js`, `tests/transfer.test.js` | **New.** |
 
 ### How the database looks
 
-Database `roundingos`, Dexie version 1:
+Database `roundingos`, Dexie version 1. Every data row has the same shape: a few readable fields used for indexing, plus a `payload` and a `codec` tag that says how the payload is stored.
 
-| Table | Readable fields | Encrypted payload |
+| Table | Readable fields | `payload` holds |
 |---|---|---|
-| `meta` | `key` | The data key wrapped by the passphrase, the data key wrapped by the recovery key, salt, iterations, schema version |
-| `patients` | `id`, `purgeAfter` | The whole patient record |
-| `settings` | `key` (one row, `"app"`) | Everything in `state` except `patients`: provider/service names, theme, UI state, dot phrases, Plan Builder settings, reminders, custom vocab |
-| `snapshots` | `id`, `createdAt`, `reason` | A full copy of `state`, taken before an import, before "clear census", and once a day. The last 7 are kept. |
+| `meta` | `key` | Schema version, `codec` in use (`"plain"` in phase 3), and in phase 4 the wrapped keys, salt and iterations |
+| `patients` | `id`, `updatedAt`, `purgeAfter`, `codec` | The whole patient record |
+| `settings` | `key` (one row, `"app"`), `codec` | Everything in `state` except `patients`: provider/service names, theme, UI state, dot phrases, Plan Builder settings, reminders, custom vocab |
+| `snapshots` | `id`, `createdAt`, `reason`, `codec` | A full copy of `state`, taken before an import, before "clear census", and once a day. The last 7 are kept. |
 | `tombstones` | `id`, `deletedAt` | None. It records only that a patient id was deleted, for the merge. |
 
-Names, rooms, MRNs, notes and plans exist only inside the encrypted payload. Looking at the database in DevTools shows ids and timestamps only.
-
-### Keys, in plain terms
-
-- On first setup the app makes a random 256-bit **data key**. Every record is encrypted with it (AES-GCM, with a fresh random IV on every write).
-- The data key is stored twice, never in the clear: once locked by your **passphrase** (PBKDF2-SHA256, 600,000 iterations), and once locked by a **recovery key**. The recovery key is shown one time, as words for you to write down or print.
-- When you unlock, the data key lives only in memory, as a non-extractable `CryptoKey`. The app locks itself after a chosen idle time (default 15 minutes, set in settings) and when you choose "Lock now".
-- If you forget the passphrase and lose the recovery words, the data is gone. That's the trade for real encryption, and the README and the setup screen say so.
+In phase 3, `codec` is `"plain"` and `payload` is the record itself. Names and MRNs are therefore readable in DevTools, exactly as they are in `localStorage` today. In phase 4, `codec` becomes `"aes-gcm-1"` and `payload` becomes `{ iv, ct }`.
 
 ### `store.js` API
 
 ```js
-Store.status()            // 'new' | 'locked' | 'unlocked'
-Store.setup(passphrase)   // first run → returns recovery words
-Store.unlock(passphrase)  // or Store.unlockWithRecovery(words)
-Store.lock()
+Store.open()              // opens the database, reads meta
 Store.load()              // → full state object, same shape as today
 Store.save(state)         // writes only records that changed
-Store.snapshot(reason)    // full encrypted copy
+Store.snapshot(reason)    // full copy of state
+Store.listSnapshots()
 Store.restoreSnapshot(id)
 Store.purgeDischarged(days)
+// phase 4 adds: status(), setup(), unlock(), unlockWithRecovery(), lock(), sealAll()
 ```
+
+Internally, every read and write goes through two functions: `encodeRecord(obj) → { codec, payload }` and `decodeRecord(row) → obj`. In phase 3 they just pass the object through. Phase 4 replaces only these two functions and adds the unlock calls. The rest of `store.js` and all of `transfer.js` stay the same, and `app.js` only gains the unlock step before loading.
 
 Inside `app.js`, `saveState()` keeps its name and stays synchronous for its ~70 callers. It updates `lastSavedAt`, then schedules `Store.save(state)` after a ~300 ms pause. It saves immediately on `pagehide` and `visibilitychange`, because phones kill background tabs without warning.
 
-**Detecting what changed:** today only one code path sets `patient.updatedAt` (`app.js:755`), so `updatedAt` can't be trusted to spot edits. Instead, `Store.save` keeps a hash of each patient's JSON from the last write, and re-encrypts only the patients whose hash changed. Deleted patients are removed and get a tombstone in the same transaction. `Store.save` also sets `updatedAt` on every patient it writes, which the merge needs.
+**Detecting what changed:** only one code path sets `patient.updatedAt` today, so `updatedAt` can't be trusted to spot edits. Instead, `Store.save` keeps a hash of each patient's JSON from the last write and rewrites only the patients whose hash changed. It sets `updatedAt` on each one it writes, which the merge needs. Deleted patients are removed and get a tombstone in the same transaction.
 
 **Two tabs:** the `storage` event goes away along with `localStorage`. A `BroadcastChannel('roundingos')` replaces it: after a save, the tab posts "changed", and the other tab reloads its state from the store, as the current code does.
 
-**Discharge purge:** when a patient's dispo becomes discharged, `purgeAfter` is set to now + N days (default 3, changeable in settings). `Store.purgeDischarged` runs at unlock and at the new-day rollover.
+**Discharge purge:** when a patient's dispo becomes discharged, `purgeAfter` is set to now + N days (default 3, changeable in settings). `Store.purgeDischarged` runs at startup and at the new-day rollover.
 
-### Data migration (localStorage → encrypted database)
+### Data migration (localStorage → database)
 
-By now the data lives in `localStorage['roundingos_hospitalist_v1']` at the GitHub Pages address (phase 1 moved it there). The update runs at that same address, so it can read that data directly:
+Phase 1 moved the data to `localStorage['roundingos_hospitalist_v1']` at the GitHub Pages address. The update runs at that same address, so it can read the data directly. On the first start after the update:
 
-1. After the update installs, the app shows **Setup**: a passphrase, entered twice, then the recovery words.
-2. `store.js` reads `roundingos_hospitalist_v1` and writes every patient and the settings into the encrypted database.
-3. It re-reads everything from the database and checks that the patient count and ids match.
-4. Only then does it delete `roundingos_hospitalist_v1` and `roundingos_pre_import_snapshot` from `localStorage`. If any step fails, `localStorage` is left untouched and you see an error.
-5. Before step 2, the setup screen offers an encrypted export of the current data as a backup, and recommends taking it.
+1. `store.js` reads `roundingos_hospitalist_v1` and writes every patient and the settings into the database, in one transaction.
+2. It re-reads everything and checks that the patient count and ids match.
+3. Only then does it delete `roundingos_hospitalist_v1` and `roundingos_pre_import_snapshot`. If any step fails, `localStorage` is left untouched, the app keeps running from it, and you see an error.
 
-Do this on each device, since each one has its own data. Afterwards, `localStorage` holds no patient data, and the "test data only" warning comes down.
+Do this on each device, since each one has its own data.
 
 ### Phone ↔ laptop
 
-The two installs have separate databases. There is no server, so data moves only as an encrypted file you carry (AirDrop, a cable, a USB stick, or a file you email yourself, since it's encrypted).
+The two installs have separate databases. There is no server, so data moves only as an encrypted file you carry (AirDrop, a cable, a USB stick, or a file you email yourself).
 
-- **Export:** the whole census plus settings, encrypted with a passphrase you type for this export, in the existing `roundingos-encrypted-v1` format (now at 600k iterations).
-- **Import merges instead of replacing:** patients are matched by `id`, and the newer `updatedAt` wins. A patient that exists on only one side is added. A patient deleted on this device after the export was made stays deleted (the `tombstones` table tracks this). Before applying, the app shows a summary such as "3 new, 5 updated, 1 kept local (newer)". It takes a snapshot first, so one tap undoes the import. "Replace everything" stays as a second option.
-- QR hand-off for a single patient or the sign-out list is a nice-to-have. Leave it out unless the file route proves too clumsy.
+- **Export:** the whole census plus settings, encrypted with a passphrase you type for this export, in the existing `roundingos-encrypted-v1` format.
+- **Import merges instead of replacing:** patients are matched by `id`, and the newer `updatedAt` wins. A patient on only one side is added. A patient deleted on this device after the export was made stays deleted (the `tombstones` table tracks this). Before applying, the app shows a summary such as "3 new, 5 updated, 1 kept local (newer)". It takes a snapshot first, so one tap undoes the import. "Replace everything" stays as a second option.
 
 ### Risks
 
 | Risk | Mitigation |
 |---|---|
-| Losing data during migration | Old data is deleted only after a verified re-read, and the setup screen offers an export first. |
-| Forgotten passphrase | Recovery words at setup, with a "confirm you saved them" step: type 3 of the words back. |
-| Unlock friction on rounds | 600k PBKDF2 takes ~0.3–1 s on a phone, once per unlock, not per save. The idle lock time is configurable. Biometric unlock (WebAuthn PRF) is a possible later addition, not part of this plan. |
-| Async save racing with the phone killing the tab | The save waits ~300 ms after an edit, and saves immediately on `pagehide`/`visibilitychange`. Dexie transactions are atomic, so a record is either old or new, never half-written. |
+| Losing data during migration | `localStorage` is deleted only after a verified re-read; take an encrypted export first. |
+| Async save racing with the phone killing the tab | A ~300 ms debounce, plus an immediate save on `pagehide`/`visibilitychange`. Dexie transactions are atomic, so a record is either old or new, never half-written. |
 | Merge brings back a deleted patient or loses an edit | Tombstones, newer-wins, a summary before applying, and a snapshot. Tested below. |
-| Clocks differ between devices | If they differ by minutes, the summary shows which side won, and you can undo. Acceptable for one user. |
+| Clocks differ between devices | The summary shows which side won, and you can undo. Acceptable for one user. |
+| Still plain text | Test patients only, the banner stays, until phase 4. |
 
 ### Acceptance checks
 
-Automated (`tests/index.html`, against a throwaway database `roundingos-test`):
+Automated (`pnpm test`, against a throwaway database `roundingos-test`):
 - A save → reload round-trip gives an identical `state`.
-- A wrong passphrase fails, and the recovery words unlock.
-- Raw database rows contain no patient name, room or MRN. The test searches the stored bytes for known test names.
-- Editing one patient rewrites one row only.
+- Editing one patient rewrites one row only; deleting one creates a tombstone.
+- Every row goes through `encodeRecord`/`decodeRecord` (a test swaps in a fake codec and checks that no row is written without it).
 - Migration: counts match, the old keys are deleted only after the verify, and a forced failure leaves `localStorage` untouched.
-- Merge: newer wins, tombstones block deleted patients from coming back, and re-importing the same file changes nothing.
-- An old 150,000-iteration `.rnos` export still imports.
-- Purge removes only discharged patients past their window.
+- Merge: newer wins, tombstones keep deleted patients deleted, and re-importing the same file changes nothing.
+- Purge removes only discharged patients past their window; restoring a snapshot gives back the earlier state.
 
 Manual, on both devices:
-- Updating an existing phase-1 install shows Setup. After setup, the census is the same as before, and `localStorage` has no patient data.
-- DevTools → Application → IndexedDB shows only ids and ciphertext.
-- Edit a patient, close the app mid-edit, reopen and unlock: the edit is there.
+- Updating a phase-1 install keeps the same census, and `localStorage` no longer holds patient data.
+- Edit a patient, close the app mid-edit, and reopen: the edit is there.
 - A 40-patient census (load the test data three times) stays responsive while typing.
-- Export on the laptop → import on the phone: counts match, there are no duplicates, and a patient deleted on the phone stays deleted.
+- Export on the laptop → import on the phone: counts match, no duplicates, and a patient deleted on the phone stays deleted.
 
-**Size:** 4–5 days. `store.js` and the key handling are the careful part. The change to `app.js` is ~100 lines.
+**Size:** 3–4 days.
 
 ---
 
-## Phase 4 · On-device voice
+## Phase 4 · Encryption (the gate for real patients)
+
+**Goal:** no readable patient data anywhere on the device. A lost laptop or phone, or a copied browser profile, exposes nothing without your passphrase.
+
+### What changes, file by file
+
+| File | Change |
+|---|---|
+| `src/core/crypto.js` | Keeps the export/import format. New files use 600,000 PBKDF2 iterations instead of 150,000; when opening a file it reads `iterations` from the envelope, so old exports still open. Gains the helpers `store.js` needs: generate a data key, wrap/unwrap it with a passphrase or recovery key, and encrypt/decrypt a record with an existing key. |
+| `vendor/bip39-english.txt` (or similar) | **New.** A standard 2048-word list for the recovery words. |
+| `src/core/store.js` | `encodeRecord`/`decodeRecord` switch to AES-GCM. Adds `status()`, `setup(passphrase)` → recovery words, `unlock(passphrase)`, `unlockWithRecovery(words)`, `lock()`, and `sealAll()` (the one-time pass that encrypts existing rows). |
+| `src/core/app.js` | Shows the unlock/setup modal before loading, adds "Lock now" to the menu, and adds an idle auto-lock (default 15 minutes, set in settings). |
+| `index.html` | One unlock/setup modal, using the markup pattern and classes of the existing passphrase modal. Remove the "not encrypted, test data only" banner. |
+| `README.md` | Privacy and backup sections updated: data is encrypted; keep the recovery words safe. |
+| `tests/crypto.test.js`, additions to `tests/store.test.js` | **New / extended.** |
+
+### Keys, in plain terms
+
+- On first setup the app makes a random 256-bit **data key**. Every record is encrypted with it (AES-GCM, with a fresh random IV on every write).
+- The data key is stored twice in `meta`, never in the clear: once locked by your **passphrase** (PBKDF2-SHA256, 600,000 iterations), and once locked by a **recovery key** shown one time as 24 words for you to write down or print.
+- When you unlock, the data key lives only in memory as a non-extractable `CryptoKey`. The app locks itself after the idle time and when you choose "Lock now".
+- If you forget the passphrase and lose the recovery words, the data is gone. That's the trade for real encryption, and the README and the setup screen say so.
+
+### Data migration (plain rows → encrypted rows, no schema change)
+
+This is not a database migration: the tables, keys and indexes from phase 3 stay exactly as they are. On the first start after the update:
+
+1. The app shows **Setup**: offer an encrypted export as a backup (recommended), then the passphrase twice, then the recovery words, then type 3 of them back.
+2. `Store.sealAll()` reads every row with `codec: "plain"`, writes it back as `codec: "aes-gcm-1"` with `{ iv, ct }`, all in one transaction, and sets `meta.codec = "aes-gcm-1"`.
+3. It re-reads every row with the new key and checks the counts and ids. If anything fails, the transaction rolls back and the plain rows stay as they were.
+4. Snapshots are sealed the same way.
+
+`decodeRecord` keeps reading `"plain"` rows, so a row that somehow missed the pass still opens; the next save encrypts it. After a successful seal, the app refuses to write new plain rows.
+
+**Leftovers:** browsers don't promise to wipe the old bytes of overwritten IndexedDB rows straight away. That's why real patients go in only after this phase, so the only plain-text leftovers are test patients.
+
+### Risks
+
+| Risk | Mitigation |
+|---|---|
+| Forgotten passphrase | Recovery words at setup, with a "confirm you saved them" step. |
+| Seal pass fails midway | One transaction: it either encrypts everything or nothing. Verified by re-reading before the plain mode is switched off. |
+| Unlock friction on rounds | 600k PBKDF2 takes ~0.3–1 s on a phone, once per unlock, not per save. The idle lock time is configurable. Biometric unlock (WebAuthn PRF) is a possible later addition, not part of this plan. |
+| Locked app while a reminder is due | Reminder times are kept in memory while unlocked; when locked, a reminder shows a generic "RoundingOS reminder" notification without patient details. |
+
+### Acceptance checks
+
+Automated:
+- A wrong passphrase fails, and the recovery words unlock.
+- Raw database rows contain no patient name, room or MRN (the test searches the stored bytes for known test names).
+- `sealAll()` turns a phase-3 database into an encrypted one with identical `Store.load()` output; a forced failure leaves it unchanged.
+- An old 150,000-iteration `.rnos` export still imports; new exports use 600,000.
+
+Manual, on both devices:
+- Updating a phase-3 install shows Setup, and after setup the census is the same as before.
+- DevTools → Application → IndexedDB shows only ids, timestamps and ciphertext.
+- The app locks after the idle time and on "Lock now", and the census stays hidden until you unlock.
+- Close the app mid-edit, reopen and unlock: the edit is there.
+
+**Size:** 2–3 days. The key handling is the careful part; the rest of the code is already shaped for it.
+
+---
+
+## Phase 5 · On-device voice
 
 **Goal:** dictation and voice commands work with no audio leaving the device. Cloud speech is only an explicit opt-in.
 
@@ -253,7 +306,7 @@ Manual, on both devices:
 
 ### Data migration
 
-None. The voice setting defaults to Off for everyone. The custom vocabulary is read from the encrypted settings that phase 3 set up.
+None. The voice setting defaults to Off for everyone. The custom vocabulary is read from the encrypted settings row.
 
 **Size:** 3–4 days.
 
@@ -279,13 +332,13 @@ index.html  physical-exam-builder.html  manifest.json  sw.js  README.md  CHANGES
 styles/styles.css
 icons/
 src/core/       app.js  data.js  pwa.js
-                crypto.js      kept; 600k iterations, reads old files            phase 3
-                store.js       Dexie + per-record encryption                     phase 3
+                store.js       Dexie, one record per patient (3); encryption (4)
                 transfer.js    export / import / merge                           phase 3
+                crypto.js      kept; 600k iterations, reads old files            phase 4
 src/clinical/   calc.js (phase 2)  algorithms.js  dotphrases.js
 src/features/   planbuilder.js  progressnote.js  exambuilder.js  physical-exam-builder.js  reminders.js  signout.js
 src/speech/     speech.js      kept: text clean-up + command parsing
-                voice.js  voice-webspeech.js  voice-vosk.js  voice-whisper.js  voice-worker.js   phase 4
+                voice.js  voice-webspeech.js  voice-vosk.js  voice-whisper.js  voice-worker.js   phase 5
 vendor/         dexie, vosk-browser, transformers.js  (+ VERSIONS.md)
 tests/          index.html  harness.js  *.test.js
 ```
@@ -294,11 +347,11 @@ Removed: `server.ps1` and `Start-Hospitalist-Tracker.bat`. On your machine, dele
 
 ## Release checklist
 
-Run on both devices after phase 3, before any real patient. Re-run the voice items after phase 4.
+Run on both devices after phase 4, before any real patient. Re-run the voice items after phase 5.
 
 - [ ] `pnpm test` (tests/index.html) all green
 - [ ] Airplane mode: open, unlock, add a patient, print sign-out
-- [ ] Voice is Off (until phase 4); after phase 4, dictation and a voice command work in airplane mode
+- [ ] Voice is Off (until phase 5); after phase 5, dictation and a voice command work in airplane mode
 - [ ] Network panel: no requests leave the device during a full session
 - [ ] IndexedDB and `localStorage` contain no readable patient text
 - [ ] A wrong passphrase fails; the recovery words work
@@ -308,6 +361,6 @@ Run on both devices after phase 3, before any real patient. Re-run the voice ite
 
 ## Decisions for you
 
-1. **Recovery words** (phase 3): print or write them down (recommended), or skip them and accept that a forgotten passphrase loses the data.
+1. **Recovery words** (phase 4): print or write them down (recommended), or skip them and accept that a forgotten passphrase loses the data.
 2. **Public repo** (phase 1): fine for code, but anyone can see the dot phrases. Keep it public, or move to a private repo + Cloudflare Pages/Access.
-3. **Model download** (phase 4): from Hugging Face once (simpler), or self-hosted, so the app never contacts a third party.
+3. **Model download** (phase 5): from Hugging Face once (simpler), or self-hosted, so the app never contacts a third party.
