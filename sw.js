@@ -7,7 +7,7 @@
  * This file caches app code only. Patient data lives in browser storage and is
  * never cached here or sent anywhere.
  */
-const CACHE_VERSION = 'roundingos-v1.2.0';
+const CACHE_VERSION = 'roundingos-v1.3.0';
 
 const APP_FILES = [
   './',
@@ -21,6 +21,7 @@ const APP_FILES = [
   'progressnote.js',
   'exambuilder.js',
   'algorithms.js',
+  'calc.js',
   'planbuilder.js',
   'reminders.js',
   'speech.js',

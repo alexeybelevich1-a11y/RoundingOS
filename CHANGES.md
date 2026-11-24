@@ -143,3 +143,17 @@ Removed: `server.ps1`, `Start-Hospitalist-Tracker.bat` (the app needs no local s
 - `tests/index.html`: smoke tests (empty first run, test patients, voice gate, manifest, precache list).
   `tests/ui-baseline/`: screenshots of every main screen from before this change, laptop and phone.
 - Storage is unchanged and still **unencrypted**: test patients only until encrypted storage lands.
+
+# RoundingOS v1.3 — Tested calculators (2026-11-24)
+
+New: `calc.js`, `tests/calc.test.js`, `tests/dictation.test.js`, `tests/commands.test.js`.
+Changed: `planbuilder.js`, `index.html`, `sw.js`, `tests/harness.js`, `tests/index.html`, `scripts/test.mjs`.
+
+- No visible change. The math behind the 8 Plan Builder calculators (corrected Na + 24 h limit, corrected Ca,
+  anion gap / delta-delta, CURB-65, MELD 3.0 + SAAG, CHA2DS2-VASc, insulin TDD, steroid NPH) moved into `calc.js`
+  as pure functions. The screens, results, Apply text and toasts are the same as before.
+- Each formula names its source in `calc.js`. Values the app already used without a known source are marked
+  `TODO(clinical)`.
+- Tests: missing inputs return nothing (never 0), the MELD 3.0 bounds, the Na-cap and delta-delta fixes,
+  dictation clean-up ("sigmoid colon", "as part of", "dig level"), and one case per voice command.
+- Known-answer calculator cases show as `○ TODO` until their expected values are filled in from MDCalc.

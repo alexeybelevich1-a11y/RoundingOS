@@ -4,6 +4,8 @@
   const tests = [];
   window.test = (name, fn) => tests.push({ name, fn });
   window.assert = (cond, msg) => { if (!cond) throw new Error(msg || 'assertion failed'); };
+  /* Marks a test as waiting for a value to be filled in: shown as TODO, does not fail the run. */
+  window.todo = (msg) => { const e = new Error(msg); e.todo = true; throw e; };
   window.assertEqual = (a, b, msg) => {
     if (a !== b) throw new Error(`${msg || 'not equal'}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
   };
@@ -34,15 +36,18 @@
 
   window.runTests = async () => {
     const out = document.getElementById('results');
-    let pass = 0, fail = 0;
+    let pass = 0, fail = 0, todos = 0;
     for (const t of tests) {
       const li = document.createElement('li');
       try { await t.fn(); li.textContent = `✓ ${t.name}`; li.className = 'pass'; pass++; }
-      catch (e) { li.textContent = `✗ ${t.name}: ${e.message}`; li.className = 'fail'; fail++; }
+      catch (e) {
+        if (e.todo) { li.textContent = `○ TODO ${t.name}: ${e.message}`; li.className = 'todo'; todos++; }
+        else { li.textContent = `✗ ${t.name}: ${e.message}`; li.className = 'fail'; fail++; }
+      }
       out.appendChild(li);
     }
     const sum = document.getElementById('summary');
-    sum.textContent = `${pass} passed, ${fail} failed`;
+    sum.textContent = `${pass} passed, ${fail} failed${todos ? `, ${todos} TODO` : ''}`;
     sum.className = fail ? 'fail' : 'pass';
     document.title = fail ? 'FAIL' : 'PASS';
   };
