@@ -9,6 +9,7 @@ Saved data migrates automatically: the legacy `weights` checklist key becomes `b
 ## On-device voice, beta (phase 5, step 1)
 - New test page `labs/voice-bench.html` (not part of the app): measures Vosk commands and Whisper/Moonshine dictation on this device. The app itself is unchanged.
 - Vendored vosk-browser 0.0.8 (patched to run under the app's Content-Security-Policy) and transformers.js 3.8.1.
+- Fix: with the app installed, opening `labs/voice-bench.html` showed an unstyled copy of the app. The service worker now loads pages it has not cached from the network and uses the app only as the offline fallback (cache v1.6.1).
 
 ## Safety & data fixes
 - **C1** No normal exam or "imaging: none new" is ever inserted unless you click *Insert normal exam*; blanks stay `***`.
