@@ -9,6 +9,9 @@ Saved data migrates automatically: the legacy `weights` checklist key becomes `b
 ## Auto-lock at most 15 minutes
 - Settings & backup now offers an automatic lock after **5 or 15 minutes** without use. A device set to 30 or 60 minutes locks after 15 (cache v1.7.10).
 
+## Warning before readable downloads
+- Downloading a progress note (.txt) or a sign-out (.txt or .md) now asks first, as the unencrypted .json export does: the file holds patient information in readable form and may sync to personal cloud storage. Copy and print are unchanged (cache v1.7.9).
+
 ## Reminders don't outlive the patient
 - When a patient is deleted for good (**Delete now**, or the automatic deletion after the archive period), their reminders are deleted too. **Remove from census** keeps the reminder but shows it as "Removed patient" instead of the room and name. Reminders saved by older versions as "… (removed)" are relabeled the same way (cache v1.7.8).
 
