@@ -29,11 +29,24 @@ A test shown as `○ TODO` is waiting for a clinical value to be filled in from 
 All tests must be green before you open a pull request; GitHub Actions runs `pnpm test` on every pull request.
 Also click through the screens you changed with the browser console open and check for errors.
 
+## On-device voice test (beta)
+`labs/voice-bench.html` checks whether on-device speech runs well enough on a device before it goes into the app:
+Vosk for commands, Whisper or Moonshine for dictation. It shows load times, the delay for a command, and how long
+a 30-second dictation takes, then gives a **Copy results** block. Models download once from Hugging Face
+(Vosk's from the vosk-browser demo site) and the browser keeps them. Audio stays on the device. Use made-up phrases only.
+
+- **Laptop:** `pnpm dev`, then open `http://localhost:8000/labs/voice-bench.html` in Chrome or Edge.
+- **Android phone:** the mic only works on https or localhost. Either open
+  `https://alexeybelevich1-a11y.github.io/RoundingOS/labs/voice-bench.html` once GitHub Pages is on, or plug the
+  phone into the laptop with USB debugging on, run `pnpm dev`, open `chrome://inspect/#devices` on the laptop,
+  turn on **Port forwarding** for `8000 → localhost:8000`, and open `http://localhost:8000/labs/voice-bench.html` in Chrome on the phone.
+
 ## Branches and pull requests
 
 1. Branch from `main`; keep one change per branch.
 2. Keep pull requests small and describe what changed and how you checked it.
 3. Releasing a change to the PWA: bump `CACHE_VERSION` in `sw.js` and add any new file to `APP_FILES`.
+   Installed copies download the new version in the background and show **Update available**; they reload only when you tap it.
 4. Add a line to `CHANGES.md` for user-visible changes.
 5. Get a review before merging to `main` (GitHub Pages serves `main`).
 
