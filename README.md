@@ -5,9 +5,17 @@ Local-first hospitalist rounding workstation: census, checklists, tasks, consult
 I-PASS sign-out, alarms and voice dictation.
 Plain HTML/CSS/JavaScript with no dependencies and no build step.
 
+> [!WARNING]
+> **Proof of concept for research only. Do not use it in hospitals or for patient care.**
+> RoundingOS is an experimental research project. It has only ever been used with invented test patients and
+> contains **no real patient data**. It is **not HIPAA-ready**: a HIPAA readiness review found work still to do
+> (cloud voice, notifications, the unencrypted fallback, passphrase strength and more), and those fixes are in progress.
+> Even after them, use with real patients would need approval from the hospital's privacy and security office.
+> Don't enter real patient information. See also the [medical disclaimer](#medical-disclaimer).
+
 > **Encrypted on the device.** Every patient record is encrypted with your passphrase (phase 4 of the
-> local-first plan). Before the first real patient, run the release checklist in `docs/plan.md` on each device.
-> Keep **Voice** off for real patients until on-device voice ships: cloud speech sends audio off the device.
+> local-first plan). The release checklist in `docs/plan.md` lists the device checks still needed before any
+> real use. Cloud **Voice** sends audio off the device; keep it off.
 
 ## Install (Android first, then laptop and iPhone)
 RoundingOS is a Progressive Web App served as static files from GitHub Pages:
@@ -106,7 +114,7 @@ Installed copies download the new version in the background and show **Update av
 
 ## Privacy
 **`data/` and backup files are git-ignored. Never commit patient data.**
-The sample patients in `src/core/data.js` are fictional test data.
+The sample patients in `src/core/data.js` are fictional test data, and the project uses no real patient data.
 
 Fast abnormal physical exam documentation: **Quick exam** beside the exam field opens the Physical Exam
 Quick-Builder — 8 systems, ~150 findings, 31 condition presets with search. `physical-exam-builder.html`
@@ -115,7 +123,8 @@ is a standalone preview of it.
 See `CHANGES.md` for the latest changes.
 
 ## Medical disclaimer
-RoundingOS is a note-taking and organizing aid for clinicians. It is **not a medical device** and is not
+RoundingOS is a proof-of-concept research project for a note-taking and organizing aid for clinicians, and is
+not for use in hospitals or patient care (see the notice at the top). It is **not a medical device** and is not
 cleared or approved by any regulator. It does not replace clinical judgment. Verify every calculator
 result, score and threshold against the original source before acting on it. The software is provided
 "as is", without warranty of any kind (see sections 15 and 16 of the license).
