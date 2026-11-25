@@ -241,7 +241,7 @@ Manual, on both devices:
 | `vendor/bip39/english.js` | **New.** The standard BIP-39 2048-word list for the recovery words, as a JS array. |
 | `src/core/lock.js` | **New.** The lock screen (setup, unlock, recovery), UI only; `app.js` passes in the `Store` calls. |
 | `src/core/store.js` | `encodeRecord`/`decodeRecord` switch to AES-GCM. Adds `status()`, `setup(passphrase)` → recovery words, `unlock(passphrase)`, `unlockWithRecovery(words)`, `lock()`, and `sealAll()` (the one-time pass that encrypts existing rows). |
-| `src/core/app.js` | Shows the unlock/setup modal before loading, adds "Lock now" to the menu, and adds an idle auto-lock (default 15 minutes; 5/15/30/60 in Settings & backup). |
+| `src/core/app.js` | Shows the unlock/setup modal before loading, adds "Lock now" to the menu, and adds an idle auto-lock (default 15 minutes; 5 or 15 in Settings & backup, capped at 15 by HIPAA task H8). |
 | `index.html` | One unlock/setup modal, using the markup pattern and classes of the existing passphrase modal. Remove the "not encrypted, test data only" banner. |
 | `README.md` | Privacy and backup sections updated: data is encrypted; keep the recovery words safe. |
 | `tests/crypto.test.js`, `tests/harness.js` | **New / extended.** The harness answers the lock screen when it loads the app. |

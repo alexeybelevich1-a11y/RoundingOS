@@ -424,9 +424,12 @@
     location.reload();
   }
 
+  // HIPAA H8: the unlocked window stays short. 5 or 15 minutes; anything else (an older saved
+  // 30 or 60, or a bad value) becomes 15.
+  const AUTO_LOCK_CHOICES = [5, 15];
   function autoLockMinutes() {
     const m = Number(state.autoLockMinutes);
-    return [5, 15, 30, 60].includes(m) ? m : DEFAULT_AUTO_LOCK_MINUTES;
+    return AUTO_LOCK_CHOICES.includes(m) ? m : DEFAULT_AUTO_LOCK_MINUTES;
   }
 
   function checkIdle() {
@@ -1897,7 +1900,8 @@
     const dueNow = Retention.due(state.patients, retention).toDelete.length;
     if (dueNow && !confirm(`With this setting, ${dueNow} archived patient${dueNow === 1 ? ' is' : 's are'} deleted now. Continue?`)) return;
     state.retention = retention;
-    state.autoLockMinutes = Number($('setAutoLock').value) || DEFAULT_AUTO_LOCK_MINUTES;
+    const pickedLock = Number($('setAutoLock').value);
+    state.autoLockMinutes = AUTO_LOCK_CHOICES.includes(pickedLock) ? pickedLock : DEFAULT_AUTO_LOCK_MINUTES;
     el.serviceHeaderLabel.textContent = state.serviceName;
     saveState();
     closeModal(el.dataModal);
