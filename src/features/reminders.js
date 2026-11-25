@@ -169,19 +169,22 @@ const ReminderEngine = (() => {
     renderModalList();
   }
 
+  // The OS notification can show on the lock screen, in notification history and on a paired
+  // watch, so it never carries the patient or the reminder text (HIPAA task H2). Those show only
+  // in the in-app popup.
+  const NOTIFICATION_TITLE = 'RoundingOS reminder';
+  const NOTIFICATION_BODY = 'A reminder is due. Open the app to see it.';
+
   function sendDesktopNotification(item) {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     try {
-      const title = item.patientLabel
-        ? `⏰ RoundingOS — ${item.patientLabel}`
-        : `⏰ RoundingOS Follow-Up Alarm`;
-      const n = new Notification(title, {
-        body: item.text,
+      const n = new Notification(NOTIFICATION_TITLE, {
+        body: NOTIFICATION_BODY,
         requireInteraction: true
       });
       n.onclick = () => {
         window.focus();
-        if (item.patientId) hooks.onSelectPatient?.(item.patientId);
+        if (item.patientId) hooks?.onSelectPatient?.(item.patientId);
         n.close();
       };
     } catch (e) {
@@ -515,7 +518,8 @@ const ReminderEngine = (() => {
     addReminder,
     playChime,
     renderClockAndBadge,
-    computeDueFromTimeString
+    computeDueFromTimeString,
+    sendDesktopNotification // exposed for tests
   };
 })();
 
