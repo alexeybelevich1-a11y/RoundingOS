@@ -9,6 +9,9 @@ Saved data migrates automatically: the legacy `weights` checklist key becomes `b
 ## Passphrase strength check
 - A new passphrase (setup, recovery, or an encrypted .rnos backup) must still be at least 10 characters, and now also can't be a common password (also with numbers or symbols swapped in), a repeated or sequential pattern such as "1234567890" or "abcabcabcabc", or one kind of character only unless it is 20 characters or longer. Checked on the device only. Existing passphrases keep working (cache v1.7.6).
 
+## No unencrypted fallback storage
+- The app no longer falls back to plain browser storage (localStorage) when the encrypted database can't be used. In that case nothing is saved, and a banner that can't be hidden says so. The installed app always has the encrypted database, so normal use is unchanged; test patients are saved in the encrypted database like any others. Data an older version left in browser storage still moves into the database the first time the app opens normally (cache v1.7.5).
+
 ## Generic reminder notifications
 - The system notification for a due reminder now always says only "RoundingOS reminder · A reminder is due. Open the app to see it." The patient and the reminder text show only in the popup inside the app, so they no longer appear on the lock screen, in notification history or on a watch (cache v1.7.4).
 

@@ -88,7 +88,8 @@ and `app.js` stays last. There are no imports or bundling.
   `{ fmt: 'plain', json }`; `Store.setup()` seals them all in one transaction and checks them by re-reading.
 - Startup: `Store.open()`, then the lock screen (`LockScreen.runSetup` the first time, else `runUnlock`), then
   `Store.load()`. Locking (idle timer or ⋯ → Lock now) writes pending edits, drops the key and reloads the page.
-  Once a database is encrypted the app never falls back to `localStorage`.
+  The app never saves to `localStorage`: if the database or WebCrypto can't be used, `storageMode` is `'error'`
+  and nothing is saved (HIPAA H3). An old `localStorage` save is only read once, to move it into the database.
 - Discharged patients (`dischargedAt`, `archivedAt` on the patient) are hidden from the census, sign-out and
   rollover once archived, and deleted after the window in `state.retention` (defaults: archive right away, delete
   after 30 days), from the database and from snapshots. Settings & backup → Saved copies lists, restores and
