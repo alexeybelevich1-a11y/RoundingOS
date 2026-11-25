@@ -6,6 +6,9 @@ Changed: `index.html`, `styles.css`, `app.js`, `data.js`, `progressnote.js`, `pl
 Saved data migrates automatically: the legacy `weights` checklist key becomes `bm`, and the UI state is reset to the new layout once.
 
 
+## Passphrase strength check
+- A new passphrase (setup, recovery, or an encrypted .rnos backup) must still be at least 10 characters, and now also can't be a common password (also with numbers or symbols swapped in), a repeated or sequential pattern such as "1234567890" or "abcabcabcabc", or one kind of character only unless it is 20 characters or longer. Checked on the device only. Existing passphrases keep working (cache v1.7.6).
+
 ## No unencrypted fallback storage
 - The app no longer falls back to plain browser storage (localStorage) when the encrypted database can't be used. In that case nothing is saved, and a banner that can't be hidden says so. The installed app always has the encrypted database, so normal use is unchanged; test patients are saved in the encrypted database like any others. Data an older version left in browser storage still moves into the database the first time the app opens normally (cache v1.7.5).
 
