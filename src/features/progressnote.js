@@ -338,16 +338,114 @@ const ProgressNoteEngine = (() => {
     return condensedItems.slice(0, 8).join('; ') + '.';
   }
 
+  function toLocalNoon(d) {
+    if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      const [y, m, day] = d.split('-').map(Number);
+      return new Date(y, m - 1, day, 12, 0, 0, 0);
+    }
+    const dt = d instanceof Date ? new Date(d.getTime()) : (d ? new Date(d) : new Date());
+    return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 12, 0, 0, 0);
+  }
+
+  function localIsoDate(baseDate = new Date(), offsetDays = 0) {
+    const dt = toLocalNoon(baseDate);
+    dt.setDate(dt.getDate() + offsetDays);
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const day = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function formatIsoDate(isoStr) {
+    if (!isoStr || !/^\d{4}-\d{2}-\d{2}$/.test(isoStr)) return '';
+    return toLocalNoon(isoStr).toLocaleDateString(undefined, {
+      year: 'numeric', month: 'short', day: '2-digit'
+    });
+  }
+
+  function computeDcDateForWhen(whenVal, baseDate = new Date()) {
+    const opts = typeof DC_WHEN_OPTIONS !== 'undefined' ? DC_WHEN_OPTIONS : [];
+    const found = opts.find(o => o.value === whenVal);
+    if (found && typeof found.offsetDays === 'number') {
+      return localIsoDate(baseDate, found.offsetDays);
+    }
+    return '';
+  }
+
+  function inferDcWhenFromDate(isoStr, baseDate = new Date()) {
+    if (!isoStr || !/^\d{4}-\d{2}-\d{2}$/.test(isoStr)) return '';
+    const diff = Math.round((toLocalNoon(isoStr) - toLocalNoon(baseDate)) / 86400000);
+    if (diff < 0) return '';
+    if (diff === 0) return 'T';
+    if (diff === 1) return 'T+1';
+    if (diff === 2) return 'T+2';
+    return '>T+2';
+  }
+
+  function formatVtePpx(patient) {
+    const val = (patient?.vtePpx || '').trim();
+    if (!val) return '';
+    const opts = typeof VTE_PPX_OPTIONS !== 'undefined' ? VTE_PPX_OPTIONS : [];
+    const found = opts.find(o => o.value === val);
+    return found ? found.noteText : val;
+  }
+
+  function formatDischargeTiming(patient, baseDate = new Date()) {
+    if (!patient) return '';
+    const when = (patient.dcWhen || '').trim();
+    const rawDate = (patient.dcDate || '').trim();
+    if (when === 'TBD') return 'TBD';
+
+    const iso = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+      ? rawDate
+      : computeDcDateForWhen(when, baseDate);
+
+    if (iso) {
+      const pretty = formatIsoDate(iso);
+      const diff = Math.round((toLocalNoon(iso) - toLocalNoon(baseDate)) / 86400000);
+      if (diff === 0) return `Today (${pretty})`;
+      if (diff === 1) return `${pretty} (T+1)`;
+      if (diff === 2) return `${pretty} (T+2)`;
+      if (diff > 2) return `${pretty} (>T+2)`;
+      return pretty;
+    }
+
+    if (when === '>T+2') return '>T+2';
+    return when;
+  }
+
+  function formatDischargePlace(patient) {
+    const val = (patient?.dcPlace || '').trim();
+    if (!val) return '';
+    const opts = typeof DC_PLACE_OPTIONS !== 'undefined' ? DC_PLACE_OPTIONS : [];
+    const found = opts.find(o => o.value === val);
+    return found ? found.label : val;
+  }
+
+  function formatDispositionSummary(patient, baseDate = new Date()) {
+    if (!patient) return '';
+    const timing = formatDischargeTiming(patient, baseDate);
+    const place = formatDischargePlace(patient);
+    const notes = (patient.disposition || '').trim();
+    const structured = [
+      place ? `Place: ${place}` : '',
+      timing ? `Target: ${timing}` : ''
+    ].filter(Boolean).join(' · ');
+    if (structured && notes) return `${structured} — ${notes}`;
+    return structured || notes;
+  }
+
   function buildProgressNote(state, patient, opts = {}) {
     if (!patient) return '';
     const {
       includeConsults = true,
       includeOpenTasks = true,
       includeContingencies = false,
-      stripNotes = true
+      stripNotes = true,
+      now = new Date()
     } = opts;
 
-    const todayStr = new Date().toLocaleDateString(undefined, {
+    const todayStr = toLocalNoon(now).toLocaleDateString(undefined, {
       year: 'numeric', month: 'short', day: '2-digit'
     });
 
@@ -421,9 +519,18 @@ const ProgressNoteEngine = (() => {
       }
     }
 
+    const vteText = formatVtePpx(patient);
+    const dcTiming = formatDischargeTiming(patient, now);
+    const dcPlace = formatDischargePlace(patient);
+    const dispoNotes = (patient.disposition || '').trim();
+
     lines.push('');
     lines.push(`DISPOSITION & PROPHYLAXIS:`);
-    lines.push(`- Disposition: ${patient.disposition?.trim() || '***'}`);
+    lines.push(`- VTE Prophylaxis: ${vteText || '***'}`);
+    lines.push(`- Discharge Plan: Anticipated ${dcTiming || '***'} | Destination: ${dcPlace || '***'}`);
+    if (dispoNotes) {
+      lines.push(`- Disposition / Barriers: ${dispoNotes}`);
+    }
     lines.push(`- Code Status: ${patient.codeStatus || '***'}`);
 
     if (includeContingencies && patient.contingencies?.trim()) {
@@ -448,6 +555,14 @@ const ProgressNoteEngine = (() => {
     jumpToNextWildcard,
     detectConsultService,
     condenseConsultRecommendations,
+    localIsoDate,
+    formatIsoDate,
+    computeDcDateForWhen,
+    inferDcWhenFromDate,
+    formatVtePpx,
+    formatDischargeTiming,
+    formatDischargePlace,
+    formatDispositionSummary,
     buildProgressNote
   };
 })();

@@ -881,8 +881,18 @@
             <textarea id="fOneLiner" rows="2" data-mic data-patient-field="oneLiner" placeholder="Age/sex with PMH admitted for…">${esc(p.oneLiner)}</textarea></div>
           <div class="field"><label for="fNotes">Hospital course / active issues</label>
             <textarea id="fNotes" rows="6" data-mic data-patient-field="clinicalNotes" placeholder="Antibiotic day, overnight updates, pending workup…">${esc(p.clinicalNotes)}</textarea></div>
+          <div class="field"><label for="fVtePpx">VTE prophylaxis</label>
+            <select id="fVtePpx">${renderSelectOptions('— Select VTE prophylaxis —', VTE_PPX_OPTIONS, p.vtePpx)}</select></div>
+          <div class="field-row">
+            <div class="field"><label for="fDcWhen">Discharge when</label>
+              <select id="fDcWhen">${renderSelectOptions('— Select —', DC_WHEN_OPTIONS, p.dcWhen)}</select></div>
+            <div class="field"><label for="fDcDate">Planned date</label>
+              <input type="date" id="fDcDate" value="${esc(p.dcDate || '')}" /></div>
+          </div>
+          <div class="field"><label for="fDcPlace">Discharge destination</label>
+            <select id="fDcPlace">${renderSelectOptions('— Select destination —', DC_PLACE_OPTIONS, p.dcPlace)}</select></div>
           <div class="field"><label for="fDispo">Disposition &amp; barriers</label>
-            <input type="text" id="fDispo" data-mic data-patient-field="disposition" value="${esc(p.disposition)}" placeholder="Home, SNF, rehab, pending PT/auth…" /></div>
+            <input type="text" id="fDispo" data-mic data-patient-field="disposition" value="${esc(p.disposition)}" placeholder="PT/OT, auth, meds-to-beds, family ride…" /></div>
         ` : ''}
         ${tab === 'ifthen' ? `
           <div class="field"><label for="fContingencies">Cross-cover if / then</label>
@@ -1069,6 +1079,11 @@
         renderRightDock();
       });
     });
+
+    $('fVtePpx')?.addEventListener('change', e => applyVtePpxChange(p, e.target.value));
+    $('fDcWhen')?.addEventListener('change', e => applyDcWhenChange(p, e.target.value));
+    $('fDcDate')?.addEventListener('change', e => applyDcDateChange(p, e.target.value));
+    $('fDcPlace')?.addEventListener('change', e => applyDcPlaceChange(p, e.target.value));
 
     // ---- Tasks
     $('addTaskForm')?.addEventListener('submit', e => {
@@ -1572,6 +1587,10 @@
         labsSummary: extras.labsSummary || '',
         clinicalNotes: extras.clinicalNotes || '',
         contingencies: extras.contingencies || '',
+        vtePpx: '',
+        dcWhen: '',
+        dcDate: '',
+        dcPlace: '',
         disposition: extras.disposition || '',
         noteDraft: null,
         checklist: createEmptyChecklist(),
@@ -1862,6 +1881,7 @@
       p.physicalExam = '';
       p.lastBm = '';
       p.noteDraft = null;
+      if (p.dcDate) p.dcWhen = ProgressNoteEngine.inferDcWhenFromDate(p.dcDate);
       touch(p);
     });
     state.shiftDate = today;
@@ -2140,8 +2160,94 @@
     ['rdLastBm', 'lastBm'],
     ['rdWeight', 'weightSummary'],
     ['rdImaging', 'imagingSummary'],
-    ['rdPlan', 'assessmentPlan']
+    ['rdPlan', 'assessmentPlan'],
+    ['rdDispoNotes', 'disposition']
   ];
+
+  function renderSelectOptions(placeholder, list, selectedVal = '') {
+    const val = String(selectedVal || '');
+    const items = Array.isArray(list) ? list : [];
+    const hasCustom = val && !items.some(o => o.value === val);
+    return [
+      `<option value="">${esc(placeholder)}</option>`,
+      ...(hasCustom ? [`<option value="${esc(val)}" selected>${esc(val)}</option>`] : []),
+      ...items.map(o => `<option value="${esc(o.value)}" ${o.value === val ? 'selected' : ''}>${esc(o.label)}</option>`)
+    ].join('');
+  }
+
+  function syncSelectControl(selectEl, placeholder, list, selectedVal = '') {
+    if (!selectEl || document.activeElement === selectEl) {
+      if (selectEl && selectEl.options.length === 0) {
+        selectEl.innerHTML = renderSelectOptions(placeholder, list, selectedVal);
+      } else if (selectEl) {
+        selectEl.value = selectedVal || '';
+      }
+      return;
+    }
+    selectEl.innerHTML = renderSelectOptions(placeholder, list, selectedVal);
+    selectEl.value = selectedVal || '';
+  }
+
+  function syncDispoSummaryControls(p) {
+    if (!p || p.id !== state.selectedPatientId) return;
+    const fVte = $('fVtePpx');
+    const fWhen = $('fDcWhen');
+    const fDate = $('fDcDate');
+    const fPlace = $('fDcPlace');
+    if (fVte && document.activeElement !== fVte) syncSelectControl(fVte, '— Select VTE prophylaxis —', VTE_PPX_OPTIONS, p.vtePpx || '');
+    if (fWhen && document.activeElement !== fWhen) syncSelectControl(fWhen, '— Select —', DC_WHEN_OPTIONS, p.dcWhen || '');
+    if (fDate && document.activeElement !== fDate) fDate.value = p.dcDate || '';
+    if (fPlace && document.activeElement !== fPlace) syncSelectControl(fPlace, '— Select destination —', DC_PLACE_OPTIONS, p.dcPlace || '');
+  }
+
+  function applyVtePpxChange(p, val) {
+    if (!p) return;
+    p.vtePpx = val;
+    touch(p);
+    saveState();
+    syncDispoSummaryControls(p);
+    renderRightDock();
+  }
+
+  function applyDcWhenChange(p, whenVal) {
+    if (!p) return;
+    p.dcWhen = whenVal;
+    const computed = ProgressNoteEngine.computeDcDateForWhen(whenVal);
+    if (computed) {
+      p.dcDate = computed;
+    } else if (whenVal === 'TBD' || !whenVal) {
+      p.dcDate = '';
+    } else if (whenVal === '>T+2' && p.dcDate && ProgressNoteEngine.inferDcWhenFromDate(p.dcDate) !== '>T+2') {
+      p.dcDate = '';
+    }
+    touch(p);
+    saveState();
+    if ($('fDcDate')) $('fDcDate').value = p.dcDate || '';
+    if ($('rdDcDate')) $('rdDcDate').value = p.dcDate || '';
+    syncDispoSummaryControls(p);
+    renderRightDock();
+  }
+
+  function applyDcDateChange(p, dateVal) {
+    if (!p) return;
+    p.dcDate = dateVal || '';
+    p.dcWhen = dateVal ? ProgressNoteEngine.inferDcWhenFromDate(dateVal) : (p.dcWhen === 'TBD' ? 'TBD' : '');
+    touch(p);
+    saveState();
+    if ($('fDcWhen')) $('fDcWhen').value = p.dcWhen || '';
+    if ($('rdDcWhen')) $('rdDcWhen').value = p.dcWhen || '';
+    syncDispoSummaryControls(p);
+    renderRightDock();
+  }
+
+  function applyDcPlaceChange(p, placeVal) {
+    if (!p) return;
+    p.dcPlace = placeVal;
+    touch(p);
+    saveState();
+    syncDispoSummaryControls(p);
+    renderRightDock();
+  }
 
   function getNoteOptions() {
     const o = state.ui.noteOpts || {};
@@ -2199,6 +2305,10 @@
       el.notePreview.value = '';
       el.notePreview.placeholder = 'Select a patient to start the note.';
       rdFields.forEach(([id]) => { const inp = $(id); if (inp && document.activeElement !== inp) inp.value = ''; });
+      syncSelectControl($('rdVtePpx'), '— Select VTE prophylaxis —', VTE_PPX_OPTIONS, '');
+      syncSelectControl($('rdDcWhen'), '— Select —', DC_WHEN_OPTIONS, '');
+      syncSelectControl($('rdDcPlace'), '— Select destination —', DC_PLACE_OPTIONS, '');
+      if ($('rdDcDate') && document.activeElement !== $('rdDcDate')) $('rdDcDate').value = '';
       $('rightSuggestedPills').innerHTML = '';
       $('noteDraftBanner').classList.add('hidden');
       updateBlankCounter();
@@ -2216,6 +2326,11 @@
       inp.placeholder = prev ? `Yesterday: ${prev}` : inp.dataset.basePlaceholder;
     });
 
+    syncSelectControl($('rdVtePpx'), '— Select VTE prophylaxis —', VTE_PPX_OPTIONS, p.vtePpx || '');
+    syncSelectControl($('rdDcWhen'), '— Select —', DC_WHEN_OPTIONS, p.dcWhen || '');
+    syncSelectControl($('rdDcPlace'), '— Select destination —', DC_PLACE_OPTIONS, p.dcPlace || '');
+    if ($('rdDcDate') && document.activeElement !== $('rdDcDate')) $('rdDcDate').value = p.dcDate || '';
+
     // Group status hints (amber = something the note would otherwise leave as ***)
     const subjMissing = [!p.subjective?.trim() && 'subjective', !p.physicalExam?.trim() && 'exam'].filter(Boolean);
     setGroupState('ngStateSubj', subjMissing.length ? `${subjMissing.join(' & ')} empty` : '✓', subjMissing.length > 0);
@@ -2224,6 +2339,10 @@
     setGroupState('ngStateObj', `${objFilled}/${objKeys.length}`, objFilled < objKeys.length);
     const problems = ((p.assessmentPlan || '').match(/^#\s/gm) || []).length;
     setGroupState('ngStateAp', p.assessmentPlan?.trim() ? `${problems || 1} problem${problems === 1 ? '' : 's'}` : 'empty', !p.assessmentPlan?.trim());
+    const hasVte = Boolean((p.vtePpx || '').trim());
+    const hasDcPlan = Boolean(ProgressNoteEngine.formatDischargeTiming(p)) && Boolean((p.dcPlace || '').trim());
+    const dispoMissing = [!hasVte && 'VTE', !hasDcPlan && 'dispo'].filter(Boolean);
+    setGroupState('ngStateDispo', dispoMissing.length ? `${dispoMissing.join(' & ')} empty` : '✓', dispoMissing.length > 0);
 
     // Preview: generated from the chart unless the user has hand-edited it (then it is a protected draft)
     const hasDraft = typeof p.noteDraft === 'string';
@@ -2271,11 +2390,19 @@
       const p = getSelectedPatient();
       if (!p) return;
       p[prop] = inp.value;
+      if (prop === 'disposition' && $('fDispo') && document.activeElement !== $('fDispo')) {
+        $('fDispo').value = inp.value;
+      }
       touch(p);
       saveState();
       renderRightDock();
     });
   });
+
+  $('rdVtePpx')?.addEventListener('change', e => applyVtePpxChange(getSelectedPatient(), e.target.value));
+  $('rdDcWhen')?.addEventListener('change', e => applyDcWhenChange(getSelectedPatient(), e.target.value));
+  $('rdDcDate')?.addEventListener('change', e => applyDcDateChange(getSelectedPatient(), e.target.value));
+  $('rdDcPlace')?.addEventListener('change', e => applyDcPlaceChange(getSelectedPatient(), e.target.value));
 
   // Hand edits to the note are kept as a per-patient draft instead of being overwritten
   el.notePreview.addEventListener('input', () => {

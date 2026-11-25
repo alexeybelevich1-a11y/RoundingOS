@@ -190,6 +190,34 @@
               </div>
             </div>
           </section>
+
+          <section class="note-group" data-note-group="dispo">
+            <button type="button" class="note-group-head" data-note-toggle="dispo"><span>Prophylaxis &amp; discharge</span><span class="note-group-state" id="ngStateDispo"></span></button>
+            <div class="note-group-body">
+              <div class="field">
+                <label for="rdVtePpx">VTE prophylaxis</label>
+                <select id="rdVtePpx"></select>
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label for="rdDcWhen">Discharge when</label>
+                  <select id="rdDcWhen"></select>
+                </div>
+                <div class="field">
+                  <label for="rdDcDate">Planned date</label>
+                  <input type="date" id="rdDcDate" />
+                </div>
+              </div>
+              <div class="field">
+                <label for="rdDcPlace">Discharge destination</label>
+                <select id="rdDcPlace"></select>
+              </div>
+              <div class="field">
+                <label for="rdDispoNotes">Barriers / dispo notes <span class="small-muted">(optional)</span></label>
+                <input type="text" id="rdDispoNotes" data-mic placeholder="PT/OT, auth, meds-to-beds, family ride…" />
+              </div>
+            </div>
+          </section>
         </div>
 
         <div class="note-preview">

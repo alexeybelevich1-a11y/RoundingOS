@@ -36,6 +36,14 @@ const SignOutEngine = (() => {
     return allDefs.filter(d => !patient.checklist?.[d.id]).map(d => d.short);
   }
 
+  function formatDispoText(patient, fallback) {
+    if (typeof ProgressNoteEngine !== 'undefined' && typeof ProgressNoteEngine.formatDispositionSummary === 'function') {
+      const summary = ProgressNoteEngine.formatDispositionSummary(patient);
+      if (summary) return summary;
+    }
+    return (patient.disposition || '').trim() || fallback;
+  }
+
   function buildPatientTextBlock(patient, options) {
     const { mode, includeCompletedTasks, includeDataSnapshot, includeChecklistGaps } = options;
     const pMeta = PRIORITY_META[patient.priority] || PRIORITY_META.stable;
@@ -120,7 +128,7 @@ const SignOutEngine = (() => {
     if (mode === 'transfer' || patient.priority === 'discharge') {
       lines.push('');
       lines.push(`DISPOSITION & BARRIERS:`);
-      lines.push(`  • ${patient.disposition || 'Pending daily reassessment.'}`);
+      lines.push(`  • ${formatDispoText(patient, 'Pending daily reassessment.')}`);
     }
 
     if (includeChecklistGaps) {
@@ -250,7 +258,7 @@ const SignOutEngine = (() => {
       }
       lines.push(`- **Contingencies (If/Then):** ${p.contingencies || 'Routine monitoring.'}`);
       if (effectiveMode === 'transfer' || p.priority === 'discharge') {
-        lines.push(`- **Disposition:** ${p.disposition || 'TBD'}`);
+        lines.push(`- **Disposition:** ${formatDispoText(p, 'TBD')}`);
       }
       lines.push('');
     });
@@ -422,7 +430,7 @@ const SignOutEngine = (() => {
               ${(effectiveMode === 'transfer' || p.priority === 'discharge') ? `
                 <div class="so-sec">
                   <div class="so-sec-label">Disposition &amp; Barriers</div>
-                  <div class="so-sec-text">${escHtml(p.disposition || 'Pending daily reassessment.')}</div>
+                  <div class="so-sec-text">${escHtml(formatDispoText(p, 'Pending daily reassessment.'))}</div>
                 </div>
               ` : ''}
 

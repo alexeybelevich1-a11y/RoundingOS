@@ -6,6 +6,10 @@ Changed: `index.html`, `styles.css`, `app.js`, `data.js`, `progressnote.js`, `pl
 Saved data migrates automatically: the legacy `weights` checklist key becomes `bm`, and the UI state is reset to the new layout once.
 
 
+## VTE prophylaxis & structured discharge planning
+- **Progress note (`DISPOSITION & PROPHYLAXIS`):** added structured **VTE Prophylaxis** (`Enoxaparin (SC)`, `Heparin (SC)`, `Therapeutic AC — DOAC`, `Therapeutic AC — Warfarin`, `Therapeutic AC — Heparin / Enoxaparin`, `Mechanical / SCDs only`, `Ambulatory / none needed`) and **Discharge Plan** with timing (`T (Today)`, `T+1`, `T+2`, `>T+2`, `TBD`), auto-populated planned calendar date, and destination (`Home`, `Home with services`, `STR`, `Acute Rehab (IRF)`, `Assisted Living (ALF)`, `LTACH`, `Hospice`), alongside optional barriers/notes (`cache v1.7.2`).
+- **Note & Summary controls:** new **Prophylaxis & discharge** section in the Progress Note panel (with missing-field badge) synced with matching controls in the patient **Summary** tab and Sign-out handoffs.
+
 ## Patient tabs: Summary first
 - The patient panel's **Summary** and **Tasks** tabs switched places, so the tabs read Summary · Consults · Tasks · If / then.
 - A new install opens patients on **Summary**. The app still remembers the last tab you chose (cache v1.7.1).

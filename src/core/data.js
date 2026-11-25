@@ -64,6 +64,34 @@ const TASK_CATEGORIES = [
   'General'
 ];
 
+const VTE_PPX_OPTIONS = [
+  { value: 'enoxaparin', label: 'Enoxaparin (SC)', noteText: 'Pharmacologic — Enoxaparin (SC)' },
+  { value: 'heparin', label: 'Heparin (SC)', noteText: 'Pharmacologic — Heparin (SC)' },
+  { value: 'doac', label: 'Therapeutic AC — DOAC', noteText: 'On therapeutic anticoagulation (DOAC)' },
+  { value: 'warfarin', label: 'Therapeutic AC — Warfarin', noteText: 'On therapeutic anticoagulation (Warfarin)' },
+  { value: 'therap-heparin', label: 'Therapeutic AC — Heparin / Enoxaparin', noteText: 'On therapeutic anticoagulation (Heparin / Enoxaparin)' },
+  { value: 'mechanical', label: 'Mechanical / SCDs only', noteText: 'Mechanical prophylaxis only (SCDs)' },
+  { value: 'ambulatory', label: 'Ambulatory / none needed', noteText: 'Ambulatory / low risk — pharmacologic prophylaxis not indicated' }
+];
+
+const DC_WHEN_OPTIONS = [
+  { value: 'T', label: 'T (Today)', offsetDays: 0 },
+  { value: 'T+1', label: 'T+1', offsetDays: 1 },
+  { value: 'T+2', label: 'T+2', offsetDays: 2 },
+  { value: '>T+2', label: '>T+2', offsetDays: null },
+  { value: 'TBD', label: 'TBD', offsetDays: null }
+];
+
+const DC_PLACE_OPTIONS = [
+  { value: 'Home', label: 'Home' },
+  { value: 'Home with services', label: 'Home with services' },
+  { value: 'STR', label: 'STR (Short-Term Rehab / SNF)' },
+  { value: 'Acute Rehab (IRF)', label: 'Acute Rehab (IRF)' },
+  { value: 'ALF', label: 'Assisted Living (ALF)' },
+  { value: 'LTACH', label: 'LTACH' },
+  { value: 'Hospice', label: 'Hospice' }
+];
+
 function createEmptyChecklist() {
   const result = {};
   [...CHECKLIST_DEFINITIONS.preround, ...CHECKLIST_DEFINITIONS.encounter].forEach(item => {
@@ -74,6 +102,15 @@ function createEmptyChecklist() {
 
 function getInitialTestPatients() {
   const now = new Date().toISOString();
+  const localDateOffset = days => {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() + days);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
   return [
     {
       id: 'pt-01',
@@ -94,6 +131,10 @@ function getInitialTestPatients() {
       labsSummary: 'WBC 17.4 ↑, Cr 2.1 (base 1.4), Lactate 2.8 → pending repeat, K 4.3, Procal 8.2',
       clinicalNotes: 'Started cefepime + vancomycin yesterday; urine cx preliminary GNRs. Borderline MAPs overnight — monitor closely for pressor need / ICU upgrade. CXR ordered for mild bibasilar crackles.',
       contingencies: 'IF MAP < 65 or SBP < 90 despite 500 mL LR bolus -> call ICU for pressor eval & transfer. IF O2 req > 6L NC -> obtain ABG, stat CXR, consider BiPAP/HFNC.',
+      vtePpx: 'heparin',
+      dcWhen: 'TBD',
+      dcDate: '',
+      dcPlace: '',
       disposition: 'Acute medical care; high risk for stepdown/ICU transfer',
       checklist: {
         labs: true, outputs: true, bm: false, consults: false,
@@ -131,6 +172,10 @@ function getInitialTestPatients() {
       labsSummary: 'Cr 2.4 (up from 1.9), K 3.4, Mg 1.6, BNP 2480, Na 131',
       clinicalNotes: 'Still JVD to jaw, 2+ pitting edema to knees. Cardiology recommends Lasix drip 10 mg/hr + metolazone 5 mg PO prior to AM dose. Strict 1.5L fluid restriction.',
       contingencies: 'IF UOP < 100 mL/hr after Lasix drip start -> escalate drip per Cards protocol. IF symptomatic hypotension (SBP < 85) -> hold afterload reducers, check lactate/ScvO2, notify Cards.',
+      vtePpx: 'heparin',
+      dcWhen: '>T+2',
+      dcDate: '',
+      dcPlace: 'Home with services',
       disposition: 'Inpatient diuresis; likely 3-4 more days',
       checklist: {
         labs: true, outputs: true, bm: true, consults: true,
@@ -166,6 +211,10 @@ function getInitialTestPatients() {
       labsSummary: 'Hgb 7.6 (post 1u pRBC pending), Plt 112, INR 1.3, BUN 42, Cr 1.0',
       clinicalNotes: 'On Pantoprazole IV BID and Octreotide drip empirically given history of compensated cirrhosis + Ceftriaxone 1g IV daily. GI scheduled EGD for 13:30 today. Type & Cross 2u pRBC active.',
       contingencies: 'IF hematemesis, brisk melena, HR > 120, or SBP < 90 -> transfuse 1-2u pRBC immediately, repeat STAT CBC, call GI fellow on call & ICU.',
+      vtePpx: 'mechanical',
+      dcWhen: 'T+2',
+      dcDate: localDateOffset(2),
+      dcPlace: 'Home',
       disposition: 'Monitor post-EGD; minimum 24-48h observation',
       checklist: {
         labs: true, outputs: false, bm: false, consults: true,
@@ -201,6 +250,10 @@ function getInitialTestPatients() {
       labsSummary: 'hs-Trop 420 -> 380, Cr 0.9, Hgb 12.8, aPTT 68 (therapeutic on heparin gtt)',
       clinicalNotes: 'Chest pain free since ED nitro/heparin. On ASA 81, atorvastatin 80, metoprolol 25 BID, heparin infusion. Contrast allergy premedication protocol ordered for cath tomorrow AM.',
       contingencies: 'IF recurrent chest pain -> STAT 12-lead ECG, SL nitro x3, repeat hs-Troponin, notify Cardiology immediately.',
+      vtePpx: 'therap-heparin',
+      dcWhen: 'T+2',
+      dcDate: localDateOffset(2),
+      dcPlace: 'Home',
       disposition: 'Cath tomorrow AM; discharge 24h post-PCI if uncomplicated',
       checklist: {
         labs: true, outputs: false, bm: true, consults: true,
@@ -236,6 +289,10 @@ function getInitialTestPatients() {
       labsSummary: 'VBG pH 7.36 / pCO2 56 (improving), WBC 11.2 (on steroids), K 4.1',
       clinicalNotes: 'Day 4 of prednisone 40mg PO daily & doxycycline (5-day course). Continues scheduled DuoNebs q4h and nocturnal BiPAP. Still slightly dyspneic with ambulation to bathroom.',
       contingencies: 'IF somnolent, RR > 28, or SpO2 < 86% -> place on BiPAP, obtain STAT VBG, avoid over-oxygenation (>92%). Respect DNR/DNI status.',
+      vtePpx: 'enoxaparin',
+      dcWhen: 'T+1',
+      dcDate: localDateOffset(1),
+      dcPlace: 'Home with services',
       disposition: 'Likely home with home health PT & oxygen re-qual in 1-2 days',
       checklist: {
         labs: true, outputs: false, bm: false, consults: false,
@@ -271,6 +328,10 @@ function getInitialTestPatients() {
       labsSummary: 'BMP: Na 138, K 3.8, HCO3 21, AG 11, Gluc 186, Phos 2.6',
       clinicalNotes: 'Insulin drip discontinued 2h after Lantus 24u subQ given. Tolerating diabetic diet well. Needs diabetes educator & pump replacement coordination prior to discharge.',
       contingencies: 'IF BG > 300 or nausea/vomiting recurs -> check STAT BMP & beta-hydroxybutyrate to ensure no rebound DKA. IF BG < 70 -> hypoglycemia protocol.',
+      vtePpx: 'enoxaparin',
+      dcWhen: 'T+1',
+      dcDate: localDateOffset(1),
+      dcPlace: 'Home',
       disposition: 'Discharge tomorrow once 24h stable on basal/bolus & pump plan set',
       checklist: {
         labs: true, outputs: true, bm: true, consults: false,
@@ -305,6 +366,10 @@ function getInitialTestPatients() {
       labsSummary: 'K 3.5, Mg 1.5, Phos 2.3, AST 148, ALT 72, Plt 128, EtOH <10',
       clinicalNotes: 'Received 6 mg IV Ativan in past 24h (last CIWA 9 at 06:00). On IV thiamine 500 mg TID, folate, MVI. Repleting K/Mg/Phos aggressively. Mild anxiety, no hallucinations.',
       contingencies: 'IF CIWA > 15 or visual/tactile hallucinations -> escalate to front-loaded phenobarbital protocol or scheduled diazepam; consider ICU if refractory.',
+      vtePpx: 'enoxaparin',
+      dcWhen: 'TBD',
+      dcDate: '',
+      dcPlace: 'Home',
       disposition: 'Monitor until 24h minimal CIWA (<8); offer Addiction Medicine & naltrexone',
       checklist: {
         labs: true, outputs: false, bm: false, consults: false,
@@ -339,6 +404,10 @@ function getInitialTestPatients() {
       labsSummary: 'WBC 10.4 (down from 14.8), Na 136, Cr 0.9, TSH/B12 WNL',
       clinicalNotes: 'Day 3 ceftriaxone; urine cx pan-sensitive Proteus -> ready to switch to PO cephalexin. Non-pharmacologic delirium bundle in place (glasses, hearing aids, window open, avoid benzos/anticholinergics).',
       contingencies: 'IF severe agitation posing safety risk -> avoid benzos/Benadryl; try redirection first, low-dose haloperidol 0.5 mg IV/PO PRN only if QTc < 500.',
+      vtePpx: 'enoxaparin',
+      dcWhen: 'T+1',
+      dcDate: localDateOffset(1),
+      dcPlace: 'ALF',
       disposition: 'Return to Assisted Living once mentation closer to baseline (1-2 days)',
       checklist: {
         labs: true, outputs: true, bm: false, consults: false,
@@ -373,6 +442,10 @@ function getInitialTestPatients() {
       labsSummary: 'WBC 7.8 (down from 15.2), Cr 1.0, Blood cx NGTD x72h',
       clinicalNotes: 'Completed 3 days IV cefazolin. Pain and swelling markedly improved. Ready for discharge today on PO cephalexin 500mg QID x 5 more days + leg elevation & compression follow-up.',
       contingencies: 'Routine discharge today; return precautions for spreading redness, fever, or worsening pain.',
+      vtePpx: 'enoxaparin',
+      dcWhen: 'T',
+      dcDate: localDateOffset(0),
+      dcPlace: 'Home',
       disposition: 'HOME TODAY — wife picking up at 14:00',
       checklist: {
         labs: true, outputs: true, bm: true, consults: true,
@@ -406,6 +479,10 @@ function getInitialTestPatients() {
       labsSummary: 'CBC/BMP normal, Troponin neg x2, TSH 1.8',
       clinicalNotes: 'TTE shows EF 60%, no structural heart disease or valvular pathology. Telemetry clean without pauses or arrhythmias. Ambulating independently without dizziness.',
       contingencies: 'Low risk. Discharge with Zio patch ordered for outpatient reassurance + hydration/compression stockings counseling.',
+      vtePpx: 'ambulatory',
+      dcWhen: 'T',
+      dcDate: localDateOffset(0),
+      dcPlace: 'Home',
       disposition: 'HOME TODAY — independent, driving self home',
       checklist: {
         labs: true, outputs: false, bm: false, consults: true,
@@ -440,6 +517,10 @@ function getInitialTestPatients() {
       labsSummary: 'Hgb 12.1 (stable), Cr 0.9, Plt 210',
       clinicalNotes: 'Switched from heparin gtt to apixaban 10 mg BID x7 days then 5 mg BID. Off supplemental oxygen for 18 hours. Awaiting insurance prior authorization for Eliquis co-pay card.',
       contingencies: 'IF acute hypoxia, tachycardia, or signs of bleeding -> evaluate immediately, hold DOAC if major bleed.',
+      vtePpx: 'doac',
+      dcWhen: 'T+1',
+      dcDate: localDateOffset(1),
+      dcPlace: 'Home',
       disposition: 'Home tomorrow once Eliquis meds-to-beds confirmed',
       checklist: {
         labs: true, outputs: false, bm: false, consults: false,
@@ -472,6 +553,10 @@ function getInitialTestPatients() {
       labsSummary: 'Cr 3.8 -> 2.9 -> 2.1 today, K 4.2, HCO3 23, Renal US no hydronephrosis',
       clinicalNotes: 'Stopped maintenance IVF as PO intake is excellent. Nephrology recommends avoiding NSAIDs permanently and holding ACEi until Cr < 1.5 at outpatient check.',
       contingencies: 'IF UOP drops < 0.5 mL/kg/hr or K > 5.3 -> repeat STAT BMP & notify team.',
+      vtePpx: 'heparin',
+      dcWhen: 'T+1',
+      dcDate: localDateOffset(1),
+      dcPlace: 'Home',
       disposition: 'Home tomorrow if AM Cr continues downward trend (< 1.8)',
       checklist: {
         labs: true, outputs: true, bm: true, consults: true,
@@ -506,6 +591,10 @@ function getInitialTestPatients() {
       labsSummary: 'A1c 7.9%, LDL 128, BMP/CBC normal',
       clinicalNotes: 'On DAPT (ASA 81 + Plavix 75 x21 days per CHANCE/POINT) & atorvastatin 80. Carotid duplex <50% stenosis; TTE normal. Passed bedside swallow eval. PT/OT recommend Acute Inpatient Rehab.',
       contingencies: 'IF any new focal neuro deficit or worsening weakness -> call Code Stroke / STAT head CT.',
+      vtePpx: 'enoxaparin',
+      dcWhen: 'TBD',
+      dcDate: '',
+      dcPlace: 'Acute Rehab (IRF)',
       disposition: 'Pending Acute Rehab insurance authorization (Case Mgmt following)',
       checklist: {
         labs: true, outputs: false, bm: false, consults: true,
@@ -541,6 +630,10 @@ function getInitialTestPatients() {
       labsSummary: 'WBC 8.6 (normalized), CRP 24 (down from 96), Cr 0.8, Bone cx MSSA',
       clinicalNotes: 'ID narrowed to IV cefazolin (6-week OPAT course) after bone biopsy grew MSSA. Vascular ABI normal (0.98). Wound clean, dry, offloading boot fitted.',
       contingencies: 'IF fever > 38.0°C, worsening erythema, or hyperglycemia > 300 -> re-examine foot & adjust insulin sliding scale.',
+      vtePpx: 'enoxaparin',
+      dcWhen: 'T+1',
+      dcDate: localDateOffset(1),
+      dcPlace: 'Home with services',
       disposition: 'Home w/ Home Infusion OPAT after PICC placed tomorrow',
       checklist: {
         labs: true, outputs: false, bm: true, consults: true,

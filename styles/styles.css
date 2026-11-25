@@ -50,6 +50,7 @@
 }
 
 [data-theme="dark"] {
+  color-scheme: dark;
   --bg-app: #0b1120;
   --bg-surface: #121a2a;
   --bg-subtle: #182235;
@@ -185,7 +186,7 @@ code {
 .btn-close:hover { color: var(--text-primary); }
 
 /* ---------- Inputs ---------- */
-input[type="text"], input[type="number"], input[type="search"], input[type="time"],
+input[type="text"], input[type="number"], input[type="search"], input[type="time"], input[type="date"],
 input[type="password"], select, textarea {
   font: 400 var(--fs-md) var(--font-sans);
   color: var(--text-primary);
