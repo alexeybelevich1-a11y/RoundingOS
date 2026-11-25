@@ -1307,10 +1307,13 @@
     $('editPatientBtn')?.addEventListener('click', () => openPatientModal(p));
     $('dischargePatientBtn')?.addEventListener('click', () => dischargePatient(p));
     $('returnToCensusBtn')?.addEventListener('click', () => returnPatientToCensus(p));
-    $('deletePatientBtn')?.addEventListener('click', () => {
-      const question = Retention.isArchived(p)
-        ? `Delete ${p.name} (Rm ${p.room}) now instead of waiting for automatic deletion?`
-        : `Remove ${p.name} (Rm ${p.room}) from the census?`;
+    $('deletePatientBtn')?.addEventListener('click', async () => {
+      // "Delete now" (archived) deletes everywhere, saved copies too, like the automatic purge.
+      // "Remove from census" (active) keeps the patient in saved copies as a safety net.
+      const deleteNow = Retention.isArchived(p);
+      const question = deleteNow
+        ? `Delete ${p.name} (Rm ${p.room}) now instead of waiting for automatic deletion?\n\nThis also deletes them from the saved copies on this device.`
+        : `Remove ${p.name} (Rm ${p.room}) from the census?\n\nSaved copies on this device (Settings & backup) keep them as a safety net until newer copies replace them.`;
       if (!confirm(question)) return;
       const idx = state.patients.findIndex(x => x.id === p.id);
       state.patients.splice(idx, 1);
@@ -1318,6 +1321,10 @@
       state.selectedPatientId = state.patients[0]?.id || null;
       saveState();
       renderAll();
+      if (deleteNow && storageMode === 'db') {
+        await flushSave();
+        await Store.scrubSnapshots([p.id]).catch(() => {});
+      }
       showToast(`Removed ${p.name}`, 'info', {
         label: 'Undo',
         onClick: () => {

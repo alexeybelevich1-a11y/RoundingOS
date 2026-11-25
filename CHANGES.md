@@ -9,6 +9,9 @@ Saved data migrates automatically: the legacy `weights` checklist key becomes `b
 ## Auto-lock at most 15 minutes
 - Settings & backup now offers an automatic lock after **5 or 15 minutes** without use. A device set to 30 or 60 minutes locks after 15 (cache v1.7.10).
 
+## Delete now removes the patient from saved copies
+- **Delete now** on an archived patient now also deletes them from the saved copies on this device, as the automatic deletion does. **Remove from census** on an active patient still keeps them in saved copies as a safety net, and its confirm message now says so (cache v1.7.7).
+
 ## Passphrase strength check
 - A new passphrase (setup, recovery, or an encrypted .rnos backup) must still be at least 10 characters, and now also can't be a common password (also with numbers or symbols swapped in), a repeated or sequential pattern such as "1234567890" or "abcabcabcabc", or one kind of character only unless it is 20 characters or longer. Checked on the device only. Existing passphrases keep working (cache v1.7.6).
 
