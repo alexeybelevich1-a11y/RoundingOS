@@ -160,6 +160,8 @@
      ======================================================================== */
   // Tests load the app with ?testdb=1 so they never touch the real database.
   const DB_NAME = new URLSearchParams(location.search).has('testdb') ? 'roundingos-test' : 'roundingos';
+  // Tests add &testfallback to open as if IndexedDB/WebCrypto were missing (test database only).
+  const FORCE_FALLBACK = DB_NAME === 'roundingos-test' && new URLSearchParams(location.search).has('testfallback');
   const TAB_ID = Math.random().toString(36).slice(2);
   const SAVE_DELAY_MS = 300;
   // 'loading' | 'db' (encrypted database, unlocked) | 'local' (IndexedDB or WebCrypto unavailable:
@@ -182,24 +184,36 @@
       : `Saved on this device · ${timeStr} · encrypted`;
   }
 
-  /** The "not encrypted" banner: only in the plain localStorage fallback. Hidden for the session on ×. */
+  /** The "not encrypted" banner: always shown in the plain localStorage fallback, never dismissible. */
   function updateTestDataBanner() {
     const banner = $('testDataBanner');
     if (!banner) return;
-    let dismissed = false;
-    try { dismissed = sessionStorage.getItem('roundingos_testdata_banner') === 'hidden'; } catch (e) { /* ignore */ }
-    banner.classList.toggle('hidden', storageMode !== 'local' || dismissed);
+    banner.classList.toggle('hidden', storageMode !== 'local');
     $('lockNowBtn')?.classList.toggle('hidden', storageMode !== 'db');
   }
-  $('testDataBannerClose')?.addEventListener('click', () => {
-    $('testDataBanner').classList.add('hidden');
-    try { sessionStorage.setItem('roundingos_testdata_banner', 'hidden'); } catch (e) { /* ignore */ }
-  });
+
+  /*
+   * Test-data-only mode (HIPAA H3). In the plain localStorage fallback nothing is encrypted, so the
+   * app writes there only while every patient is a test patient. Real (legacy) data already in
+   * localStorage stays as it is and readable, so it can be exported and moved; edits to it are not
+   * written in plain text.
+   */
+  const TEST_ONLY_MESSAGE = "Not saved: this browser can't encrypt, so it keeps test patients only. Use the installed app or another browser for real patients.";
+  let lastTestOnlyToast = 0;
+  function localSaveAllowed() {
+    return state.patients.every(isTestPatient);
+  }
+  function warnTestOnly() {
+    if (Date.now() - lastTestOnlyToast < 10000) return;
+    lastTestOnlyToast = Date.now();
+    showToast(TEST_ONLY_MESSAGE, 'error');
+  }
 
   /** Synchronous for its ~70 callers: the database write follows after a short pause. */
   function saveState() {
     // never overwrite saved data with the empty startup state, and never write while locking
     if (storageMode !== 'db' && storageMode !== 'local') return;
+    if (storageMode === 'local' && !localSaveAllowed()) { warnTestOnly(); return; }
     state.lastSavedAt = new Date().toISOString();
     if (storageMode === 'local') {
       try {
@@ -260,6 +274,7 @@
     if (storageMode === 'db') {
       try { return await Store.snapshot(reason, state); } catch (e) { return null; }
     }
+    if (!localSaveAllowed()) return null; // no plain copy of real patients
     try { localStorage.setItem(PRE_IMPORT_KEY, JSON.stringify(state)); return 'local'; } catch (e) { return null; }
   }
 
@@ -315,6 +330,7 @@
   async function openSavedState() {
     let encrypted = false;
     try {
+      if (FORCE_FALLBACK) throw new Error('test: database unavailable');
       CryptoUtil.requireSubtle();
       await Store.open(DB_NAME);
       if (Store.status().encrypted) {
@@ -345,10 +361,11 @@
         showToast(`Could not open the encrypted data (${err.message}). Reload to try again.`, 'error');
         return null;
       }
-      // IndexedDB missing, or the copy could not be verified: keep using localStorage, which is untouched
+      // IndexedDB or WebCrypto missing, or the copy could not be verified: test-data-only mode.
+      // Old localStorage data is untouched and still opens, so it can be exported and moved.
       Store.close();
       storageMode = 'local';
-      showToast(`Could not move data to the on-device database (${err.message}). Still saving to browser storage.`, 'error');
+      showToast(`Could not open the encrypted database (${err.message}). This browser can keep test patients only.`, 'error');
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         return raw ? JSON.parse(raw) : null;
@@ -1533,6 +1550,14 @@
 
     const id = $('pfId').value;
     const now = new Date().toISOString();
+    if (storageMode === 'local') {
+      const existing = id ? state.patients.find(p => p.id === id) : null;
+      const mrn = $('pfMrn').value.trim();
+      if (!isTestPatient(existing) && !/^TEST-/i.test(mrn)) {
+        showToast("This browser can't encrypt, so it keeps test patients only (⋯ → Add 14 test patients, or an MRN starting TEST-).", 'error');
+        return;
+      }
+    }
     const extras = pendingFreestyleExtras || {};
     const ageVal = $('pfAge').value;
     const payload = {
