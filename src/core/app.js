@@ -1317,7 +1317,7 @@
       if (!confirm(question)) return;
       const idx = state.patients.findIndex(x => x.id === p.id);
       state.patients.splice(idx, 1);
-      ReminderEngine?.unlinkPatient?.(p.id);
+      if (Retention.isArchived(p)) ReminderEngine?.deletePatientReminders?.(p.id); else ReminderEngine?.unlinkPatient?.(p.id);
       state.selectedPatientId = state.patients[0]?.id || null;
       saveState();
       renderAll();
@@ -1388,7 +1388,7 @@
     toArchive.forEach(p => { p.archivedAt = nowIso; touch(p); });
     if (toDelete.length) {
       const ids = new Set(toDelete.map(p => p.id));
-      toDelete.forEach(p => ReminderEngine?.unlinkPatient?.(p.id));
+      toDelete.forEach(p => ReminderEngine?.deletePatientReminders?.(p.id));
       state.patients = state.patients.filter(p => !ids.has(p.id));
       if (ids.has(state.selectedPatientId)) state.selectedPatientId = activePatients()[0]?.id || null;
     }

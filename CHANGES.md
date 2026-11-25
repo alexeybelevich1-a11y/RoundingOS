@@ -9,6 +9,9 @@ Saved data migrates automatically: the legacy `weights` checklist key becomes `b
 ## Auto-lock at most 15 minutes
 - Settings & backup now offers an automatic lock after **5 or 15 minutes** without use. A device set to 30 or 60 minutes locks after 15 (cache v1.7.10).
 
+## Reminders don't outlive the patient
+- When a patient is deleted for good (**Delete now**, or the automatic deletion after the archive period), their reminders are deleted too. **Remove from census** keeps the reminder but shows it as "Removed patient" instead of the room and name. Reminders saved by older versions as "… (removed)" are relabeled the same way (cache v1.7.8).
+
 ## Delete now removes the patient from saved copies
 - **Delete now** on an archived patient now also deletes them from the saved copies on this device, as the automatic deletion does. **Remove from census** on an active patient still keeps them in saved copies as a safety net, and its confirm message now says so (cache v1.7.7).
 
