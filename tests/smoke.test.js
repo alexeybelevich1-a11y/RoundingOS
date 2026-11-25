@@ -59,3 +59,14 @@ test('app scripts load and getDefaultAppState() returns an empty state', async (
     assertEqual(app.win.getInitialTestPatients().length, 14, 'test patients available');
   } finally { app.restore(); app.frame.remove(); }
 });
+
+test('"Test data only, not for clinical use" notice is always shown at the top', async () => {
+  const app = await loadApp(null);
+  try {
+    const notice = app.doc.getElementById('researchNotice');
+    assert(notice, 'notice exists');
+    assert(!notice.classList.contains('hidden'), 'notice is visible');
+    assert(/test data only, not for clinical use/i.test(notice.textContent), 'notice text');
+    assert(app.doc.body.firstElementChild === notice, 'notice is the first thing on the page');
+  } finally { app.restore(); app.frame.remove(); }
+});

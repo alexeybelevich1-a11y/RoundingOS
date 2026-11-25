@@ -6,6 +6,9 @@ Changed: `index.html`, `styles.css`, `app.js`, `data.js`, `progressnote.js`, `pl
 Saved data migrates automatically: the legacy `weights` checklist key becomes `bm`, and the UI state is reset to the new layout once.
 
 
+## "Test data only" notice
+- A thin strip at the top of the app always reads **Test data only, not for clinical use.** RoundingOS is a hobby research project and is not HIPAA compliant (`cache v1.7.11`).
+
 ## Auto-lock at most 15 minutes
 - Settings & backup now offers an automatic lock after **5 or 15 minutes** without use. A device set to 30 or 60 minutes locks after 15 (cache v1.7.10).
 
