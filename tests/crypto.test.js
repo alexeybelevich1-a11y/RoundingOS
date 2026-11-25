@@ -253,4 +253,19 @@
       assertEqual(app.doc.querySelectorAll('[data-patient-id], .patient-card').length > 0, true, 'census back after unlock');
     } finally { app.restore(); app.frame.remove(); }
   });
+  /* HIPAA H8: auto-lock is 5 or 15 minutes; an older saved 30 or 60 becomes 15 */
+  test('auto-lock (app): only 5 and 15 minutes are offered, a saved 60 becomes 15 (H8)', async () => {
+    await Dexie.delete(APP_TEST_DB);
+    await withStore(APP_TEST_DB, s => s.save({ ...getDefaultAppState(), autoLockMinutes: 60 }));
+    const app = await loadApp(null, { keepDb: true });
+    try {
+      app.doc.getElementById('dataModalBtn').click();
+      const sel = app.doc.getElementById('setAutoLock');
+      assertEqual([...sel.options].map(o => o.value).join(), '5,15', 'choices');
+      assertEqual(sel.value, '15', 'a saved 60 shows as 15');
+      app.doc.getElementById('saveSettingsBtn').click();
+      const saved = await waitFor(async () => { const s = await readAppDb(); return s && s.autoLockMinutes === 15 && s; }, 4000, 'saved as 15');
+      assertEqual(saved.autoLockMinutes, 15, 'stored');
+    } finally { app.restore(); app.frame.remove(); }
+  });
 })();
