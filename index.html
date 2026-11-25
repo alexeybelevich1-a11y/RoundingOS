@@ -69,10 +69,9 @@
     </div>
   </header>
 
-  <!-- Shown only if the encrypted database cannot open and the app falls back to plain browser storage -->
-  <div class="testdata-banner hidden" id="testDataBanner" role="note">
-    <span>Not encrypted on this device: use test patients only.</span>
-    <button type="button" class="testdata-banner-close" id="testDataBannerClose" aria-label="Hide until next launch">&times;</button>
+  <!-- Shown only if the encrypted database cannot be used here: there is no plain-storage fallback, so nothing is saved -->
+  <div class="testdata-banner hidden" id="storageErrorBanner" role="alert">
+    <span>Can't store data securely in this browser: nothing is saved. Use the installed app.</span>
   </div>
 
   <!-- Live voice banner (only while the mic is on) -->

@@ -4,15 +4,12 @@
  */
 
 (() => {
-  const STORAGE_KEY = 'roundingos_hospitalist_v1';
-  const PRE_IMPORT_KEY = 'roundingos_pre_import_snapshot';
 
   let state = getDefaultAppState();
   let searchQuery = '';
   let signoutMode = 'shift';
   let expandedConsultId = null;
   let pasteNewConsultOpen = false;
-  let lastSavedJson = '';
 
   const $ = id => document.getElementById(id);
 
@@ -160,10 +157,12 @@
      ======================================================================== */
   // Tests load the app with ?testdb=1 so they never touch the real database.
   const DB_NAME = new URLSearchParams(location.search).has('testdb') ? 'roundingos-test' : 'roundingos';
+  // Tests add &testnodb to open as if IndexedDB/WebCrypto were missing (test database only).
+  const FORCE_NO_DB = DB_NAME === 'roundingos-test' && new URLSearchParams(location.search).has('testnodb');
   const TAB_ID = Math.random().toString(36).slice(2);
   const SAVE_DELAY_MS = 300;
-  // 'loading' | 'db' (encrypted database, unlocked) | 'local' (IndexedDB or WebCrypto unavailable:
-  // plain localStorage, test data only) | 'locked' (locking: nothing more is written) | 'error'
+  // 'loading' | 'db' (encrypted database, unlocked) | 'locked' (locking: nothing more is written)
+  // | 'error' (the encrypted database can't be used here: nothing is saved, no plain fallback)
   let storageMode = 'loading';
   let saveTimer = null;
   let saveChannel = null;
@@ -177,41 +176,29 @@
     const timeStr = state.lastSavedAt
       ? new Date(state.lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : '';
-    el.storageBadgeText.textContent = storageMode === 'local'
-      ? `Saved on this device · ${timeStr} · not encrypted: test data only`
+    el.storageBadgeText.textContent = storageMode === 'error'
+      ? 'Not saved: secure storage unavailable'
       : `Saved on this device · ${timeStr} · encrypted`;
   }
 
-  /** The "not encrypted" banner: only in the plain localStorage fallback. Hidden for the session on ×. */
-  function updateTestDataBanner() {
-    const banner = $('testDataBanner');
+  /**
+   * HIPAA H3: there is no plain-storage fallback. If the encrypted database can't be used, nothing
+   * is saved anywhere and this banner says so (it can't be dismissed).
+   */
+  function updateStorageErrorBanner() {
+    const banner = $('storageErrorBanner');
     if (!banner) return;
-    let dismissed = false;
-    try { dismissed = sessionStorage.getItem('roundingos_testdata_banner') === 'hidden'; } catch (e) { /* ignore */ }
-    banner.classList.toggle('hidden', storageMode !== 'local' || dismissed);
+    banner.classList.toggle('hidden', storageMode !== 'error');
     $('lockNowBtn')?.classList.toggle('hidden', storageMode !== 'db');
   }
-  $('testDataBannerClose')?.addEventListener('click', () => {
-    $('testDataBanner').classList.add('hidden');
-    try { sessionStorage.setItem('roundingos_testdata_banner', 'hidden'); } catch (e) { /* ignore */ }
-  });
 
   /** Synchronous for its ~70 callers: the database write follows after a short pause. */
   function saveState() {
     // never overwrite saved data with the empty startup state, and never write while locking
-    if (storageMode !== 'db' && storageMode !== 'local') return;
+    if (storageMode !== 'db') return;
     state.lastSavedAt = new Date().toISOString();
-    if (storageMode === 'local') {
-      try {
-        lastSavedJson = JSON.stringify(state);
-        localStorage.setItem(STORAGE_KEY, lastSavedJson);
-      } catch (e) {
-        showToast('Could not write to browser storage.', 'error');
-      }
-    } else {
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(flushSave, SAVE_DELAY_MS);
-    }
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(flushSave, SAVE_DELAY_MS);
     updateStorageBadge();
   }
 
@@ -257,17 +244,13 @@
 
   /** Full copy of state before a risky change. Returns an id for undoSnapshot(), or null. */
   async function takeSnapshot(reason) {
-    if (storageMode === 'db') {
-      try { return await Store.snapshot(reason, state); } catch (e) { return null; }
-    }
-    try { localStorage.setItem(PRE_IMPORT_KEY, JSON.stringify(state)); return 'local'; } catch (e) { return null; }
+    if (storageMode !== 'db') return null;
+    try { return await Store.snapshot(reason, state); } catch (e) { return null; }
   }
 
   async function undoSnapshot(id) {
     try {
-      const saved = id === 'local'
-        ? JSON.parse(localStorage.getItem(PRE_IMPORT_KEY))
-        : await Store.restoreSnapshot(id);
+      const saved = await Store.restoreSnapshot(id);
       if (!saved || !Array.isArray(saved.patients)) throw new Error('empty snapshot');
       applyLoadedState(saved);
       saveState();
@@ -295,17 +278,6 @@
         } catch (err) { /* ignore */ }
       });
     }
-    if (storageMode === 'local') {
-      window.addEventListener('storage', e => {
-        if (e.key !== STORAGE_KEY || !e.newValue || e.newValue === lastSavedJson) return;
-        try {
-          const incoming = JSON.parse(e.newValue);
-          if (!Array.isArray(incoming.patients)) return;
-          applyLoadedState(incoming);
-          showToast('Updated from another RoundingOS tab');
-        } catch (err) { /* ignore */ }
-      });
-    }
   }
 
   /**
@@ -315,6 +287,7 @@
   async function openSavedState() {
     let encrypted = false;
     try {
+      if (FORCE_NO_DB) throw new Error('test: database unavailable');
       CryptoUtil.requireSubtle();
       await Store.open(DB_NAME);
       if (Store.status().encrypted) {
@@ -339,22 +312,14 @@
       storageMode = 'db';
       return saved;
     } catch (err) {
-      if (encrypted) {
-        // never fall back to plain storage once the data is encrypted
-        storageMode = 'error';
-        showToast(`Could not open the encrypted data (${err.message}). Reload to try again.`, 'error');
-        return null;
-      }
-      // IndexedDB missing, or the copy could not be verified: keep using localStorage, which is untouched
-      Store.close();
-      storageMode = 'local';
-      showToast(`Could not move data to the on-device database (${err.message}). Still saving to browser storage.`, 'error');
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : null;
-      } catch (e) {
-        return null;
-      }
+      // No plain-storage fallback (HIPAA H3). Nothing is saved; data from an older version stays
+      // where it is and moves into the database once the app opens in a browser that supports it.
+      if (!encrypted) Store.close();
+      storageMode = 'error';
+      showToast(encrypted
+        ? `Could not open the encrypted data (${err.message}). Reload to try again.`
+        : `Could not open secure storage (${err.message}). Nothing will be saved in this browser.`, 'error');
+      return null;
     }
   }
 
@@ -370,7 +335,7 @@
 
     const saved = await openSavedState();
     startTabSync();
-    updateTestDataBanner();
+    updateStorageErrorBanner();
 
     if (saved && Array.isArray(saved.patients)) {
       applyLoadedState(saved);
@@ -1339,17 +1304,24 @@
     $('editPatientBtn')?.addEventListener('click', () => openPatientModal(p));
     $('dischargePatientBtn')?.addEventListener('click', () => dischargePatient(p));
     $('returnToCensusBtn')?.addEventListener('click', () => returnPatientToCensus(p));
-    $('deletePatientBtn')?.addEventListener('click', () => {
-      const question = Retention.isArchived(p)
-        ? `Delete ${p.name} (Rm ${p.room}) now instead of waiting for automatic deletion?`
-        : `Remove ${p.name} (Rm ${p.room}) from the census?`;
+    $('deletePatientBtn')?.addEventListener('click', async () => {
+      // "Delete now" (archived) deletes everywhere, saved copies too, like the automatic purge.
+      // "Remove from census" (active) keeps the patient in saved copies as a safety net.
+      const deleteNow = Retention.isArchived(p);
+      const question = deleteNow
+        ? `Delete ${p.name} (Rm ${p.room}) now instead of waiting for automatic deletion?\n\nThis also deletes them from the saved copies on this device.`
+        : `Remove ${p.name} (Rm ${p.room}) from the census?\n\nSaved copies on this device (Settings & backup) keep them as a safety net until newer copies replace them.`;
       if (!confirm(question)) return;
       const idx = state.patients.findIndex(x => x.id === p.id);
       state.patients.splice(idx, 1);
-      ReminderEngine?.unlinkPatient?.(p.id);
+      if (Retention.isArchived(p)) ReminderEngine?.deletePatientReminders?.(p.id); else ReminderEngine?.unlinkPatient?.(p.id);
       state.selectedPatientId = state.patients[0]?.id || null;
       saveState();
       renderAll();
+      if (deleteNow && storageMode === 'db') {
+        await flushSave();
+        await Store.scrubSnapshots([p.id]).catch(() => {});
+      }
       showToast(`Removed ${p.name}`, 'info', {
         label: 'Undo',
         onClick: () => {
@@ -1413,7 +1385,7 @@
     toArchive.forEach(p => { p.archivedAt = nowIso; touch(p); });
     if (toDelete.length) {
       const ids = new Set(toDelete.map(p => p.id));
-      toDelete.forEach(p => ReminderEngine?.unlinkPatient?.(p.id));
+      toDelete.forEach(p => ReminderEngine?.deletePatientReminders?.(p.id));
       state.patients = state.patients.filter(p => !ids.has(p.id));
       if (ids.has(state.selectedPatientId)) state.selectedPatientId = activePatients()[0]?.id || null;
     }
@@ -1949,10 +1921,10 @@
       const onSubmit = e => {
         e.preventDefault();
         const v = inp.value;
-        let msg = '';
-        if (confirmIt && v.length < 10) msg = 'Use at least 10 characters.';
-        else if (confirmIt && v !== conf.value) msg = 'Passphrases do not match.';
-        else if (!v) msg = 'Enter the passphrase.';
+        // a new backup passphrase follows the same strength rule as the lock screen (H4)
+        let msg = confirmIt ? LockScreen.passphraseProblem(v) : '';
+        if (!msg && confirmIt && v !== conf.value) msg = 'Passphrases do not match.';
+        else if (!msg && !v) msg = 'Enter the passphrase.';
         if (msg) { err.textContent = msg; err.classList.remove('hidden'); return; }
         done(v);
       };

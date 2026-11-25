@@ -728,7 +728,6 @@ input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px;
   background: var(--watcher-bg); color: var(--watcher); border: 1px solid var(--watcher-border);
   font: 600 var(--fs-sm) var(--font-sans); box-shadow: var(--shadow-md);
 }
-.testdata-banner-close { border: none; background: none; color: inherit; font-size: 16px; line-height: 1; cursor: pointer; padding: 2px 6px; }
 @media print { .testdata-banner, .research-notice { display: none !important; } }
 
 @media (max-width: 1100px) {
