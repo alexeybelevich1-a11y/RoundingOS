@@ -126,4 +126,47 @@
       }, 4000, 'p1 back on census');
     } finally { app.restore(); app.frame.remove(); }
   });
+  test('retention (app): Delete now on an archived patient also removes it from saved copies (H5)', async () => {
+    const t = new Date().toISOString();
+    const state = { ...getDefaultAppState(), patients: [pt('act1'), pt('arc1', { dischargedAt: t, archivedAt: t })], filterBy: 'archived', selectedPatientId: 'arc1' };
+    const app = await seedApp(state, state);
+    try {
+      const asked = [];
+      app.win.confirm = q => { asked.push(q); return true; };
+      app.doc.getElementById('deletePatientBtn').click();
+      assert(/saved copies/.test(asked[0] || ''), `confirm says saved copies go too: ${asked[0]}`);
+      const saved = await waitFor(async () => {
+        const s = await readAppDb();
+        return s && !s.patients.some(p => p.id === 'arc1') && s;
+      }, 4000, 'arc1 deleted');
+      assertEqual(ids(saved.patients), 'act1', 'only the active patient left');
+      const copies = await waitFor(async () => {
+        const list = await withStore(APP_TEST_DB, s => s.listSnapshots());
+        return list.length && list.every(c => c.patientCount === 1) && list;
+      }, 4000, 'saved copies scrubbed');
+      for (const c of copies) {
+        const copy = await withStore(APP_TEST_DB, s => s.restoreSnapshot(c.id));
+        assert(!copy.patients.some(p => p.id === 'arc1'), 'not in any saved copy');
+      }
+    } finally { app.restore(); app.frame.remove(); }
+  });
+
+  test('retention (app): Remove from census keeps the patient in saved copies and says so (H5)', async () => {
+    const state = { ...getDefaultAppState(), patients: [pt('act1'), pt('act2')], selectedPatientId: 'act2' };
+    const app = await seedApp(state, state);
+    try {
+      const asked = [];
+      app.win.confirm = q => { asked.push(q); return true; };
+      app.doc.getElementById('deletePatientBtn').click();
+      assert(/Saved copies .* keep them/.test(asked[0] || ''), `confirm mentions saved copies: ${asked[0]}`);
+      await waitFor(async () => {
+        const s = await readAppDb();
+        return s && !s.patients.some(p => p.id === 'act2');
+      }, 4000, 'act2 removed');
+      await new Promise(r => setTimeout(r, 300));
+      const list = await withStore(APP_TEST_DB, s => s.listSnapshots());
+      const copy = await withStore(APP_TEST_DB, s => s.restoreSnapshot(list[list.length - 1].id));
+      assert(copy.patients.some(p => p.id === 'act2'), 'still in the saved copy');
+    } finally { app.restore(); app.frame.remove(); }
+  });
 })();
