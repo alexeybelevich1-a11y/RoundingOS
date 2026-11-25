@@ -1921,10 +1921,10 @@
       const onSubmit = e => {
         e.preventDefault();
         const v = inp.value;
-        let msg = '';
-        if (confirmIt && v.length < 10) msg = 'Use at least 10 characters.';
-        else if (confirmIt && v !== conf.value) msg = 'Passphrases do not match.';
-        else if (!v) msg = 'Enter the passphrase.';
+        // a new backup passphrase follows the same strength rule as the lock screen (H4)
+        let msg = confirmIt ? LockScreen.passphraseProblem(v) : '';
+        if (!msg && confirmIt && v !== conf.value) msg = 'Passphrases do not match.';
+        else if (!msg && !v) msg = 'Enter the passphrase.';
         if (msg) { err.textContent = msg; err.classList.remove('hidden'); return; }
         done(v);
       };

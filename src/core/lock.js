@@ -39,8 +39,68 @@ const LockScreen = (() => {
     e.classList.toggle('hidden', !msg);
   }
 
+  /*
+   * Passphrase strength (HIPAA H4). Someone who copies the database can guess offline, where only
+   * the passphrase and the PBKDF2 rounds protect the data, so obvious choices are refused. All
+   * local, no network. The list is short and hand-picked: well-known passwords that top public
+   * breach lists, plus words an attacker would try first for this app. It is a floor, not a meter.
+   */
+  const COMMON_PASSWORDS = new Set([
+    '1234567890', '12345678910', '0987654321', '1q2w3e4r5t', '1qaz2wsx3edc', 'qwertyuiop', 'asdfghjkl',
+    'zxcvbnm', 'qwerty123', 'qwertyuiop123', 'password', 'password1', 'password12', 'password123',
+    'password1234', 'passw0rd', 'iloveyou', 'iloveyou1', 'iloveyou12', 'princess', 'sunshine', 'football',
+    'baseball', 'basketball', 'superman', 'batman', 'starwars', 'pokemon', 'whatever', 'trustno1',
+    'letmein', 'welcome', 'welcome1', 'welcome123', 'admin', 'administrator', 'monkey', 'dragon', 'master',
+    'shadow', 'michael', 'jennifer', 'jordan23', 'charlie', 'freedom', 'computer', 'internet', 'samsung',
+    'liverpool', 'chelsea', 'arsenal', 'changeme', 'secret', 'abc123', 'abcd1234', 'qazwsx', 'hello',
+    'helloworld', 'loveme', 'lovely', 'fuckyou', 'mustang', 'harley', 'ranger', 'soccer', 'hockey',
+    'summer', 'winter', 'spring', 'autumn', 'january', 'december', 'blink182', 'myspace1', 'p4ssw0rd',
+    'hospital', 'hospitalist', 'medicine', 'doctor', 'physician', 'nurse', 'patient', 'patients',
+    'rounding', 'roundingos', 'rounds', 'epic', 'cerner', 'passphrase', 'mypassphrase', 'mypassword',
+    'secretpassword', 'supersecret', 'opensesame', 'letmeinnow', 'iloveyoutoo', 'qwertyqwerty'
+  ]);
+  const KEYBOARD_RUNS = ['1234567890', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm', 'abcdefghijklmnopqrstuvwxyz', '1qaz2wsx3edc4rfv5tgb', 'qazwsxedcrfvtgbyhnujmikolp'];
+  const LEET = { 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', 7: 't', 8: 'b', '@': 'a', $: 's', '!': 'i' };
+
+  /** True when s is one short unit repeated ("abcabcabc", "1111111111"). */
+  function isRepeated(s) {
+    for (let n = 1; n <= s.length / 2; n++) {
+      if (s.length % n === 0 && s.slice(0, n).repeat(s.length / n) === s) return true;
+    }
+    return false;
+  }
+
+  /** True when s is a straight run up or down ("123456789", "zyxwvu"), or a piece of a keyboard row. */
+  function isSequential(s) {
+    if (s.length < 3) return false;
+    const step = s.charCodeAt(1) - s.charCodeAt(0);
+    if (Math.abs(step) === 1 && [...s].every((c, i) => i === 0 || s.charCodeAt(i) - s.charCodeAt(i - 1) === step)) return true;
+    return KEYBOARD_RUNS.some(row => row.includes(s) || [...row].reverse().join('').includes(s));
+  }
+
+  /** Returns '' if the passphrase is acceptable, otherwise why not. Same rule for setup and backups. */
+  function passphraseProblem(pass) {
+    const p = String(pass || '');
+    if (p.length < MIN_PASSPHRASE) return `Use at least ${MIN_PASSPHRASE} characters.`;
+    const easy = 'Too easy to guess (a common password or a simple pattern). Try a few unrelated words.';
+    const lower = p.toLowerCase();
+    const compact = lower.replace(/\s+/g, '');
+    const lettersOnly = compact.replace(/[^a-z]/g, '');
+    // numbers/symbols swapped in for letters ("p@ssw0rd"), after dropping a trailing "2024!"
+    const leet = [...compact.replace(/[^a-z]+$/, '')].map(c => LEET[c] || c).join('').replace(/[^a-z]/g, '');
+    if ([compact, lettersOnly, leet].some(v => v && COMMON_PASSWORDS.has(v))) return easy;
+    if (isRepeated(compact) || isSequential(compact)) return easy;
+    // the same few characters over and over ("aaaaabbbbb", "1212121299")
+    if (new Set(compact).size <= 3) return easy;
+    // one character class only (all lowercase letters, all digits, …), unless it is long
+    const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter(re => re.test(p)).length;
+    if (classes < 2 && p.length < 20) return 'Mix in another kind of character (a space, capital, number or symbol), or make it at least 20 characters.';
+    return '';
+  }
+
   function checkNewPassphrase(pass, confirmValue) {
-    if (pass.length < MIN_PASSPHRASE) return `Use at least ${MIN_PASSPHRASE} characters.`;
+    const problem = passphraseProblem(pass);
+    if (problem) return problem;
     if (pass !== confirmValue) return 'Passphrases do not match.';
     return '';
   }
@@ -199,5 +259,5 @@ const LockScreen = (() => {
     $('lockReminderNote').classList.toggle('hidden', !show);
   }
 
-  return { runSetup, runUnlock, hide, isOpen, setReminderNote, MIN_PASSPHRASE };
+  return { runSetup, runUnlock, hide, isOpen, setReminderNote, MIN_PASSPHRASE, passphraseProblem };
 })();
