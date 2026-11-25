@@ -35,8 +35,10 @@ and `tests/index.html` are relative to the repo root, which GitHub Pages serves 
 |---|---|---|
 | `vendor/dexie/dexie.min.js` | `Dexie` | IndexedDB wrapper (vendored, see `vendor/VERSIONS.md`) |
 | `src/core/data.js` | `CHECKLIST_DEFINITIONS`, `getDefaultAppState()`, `getInitialTestPatients()` | Data schema, defaults, 14 fictional test patients |
-| `src/core/crypto.js` | `BackupCrypto` | AES-256-GCM + PBKDF2 for the encrypted export/import file (`.rnos`) |
-| `src/core/store.js` | `Store` | The on-device database: the only code that reads or writes saved data |
+| `vendor/bip39/english.js` | `BIP39_ENGLISH` | The standard 2048-word list for the recovery words |
+| `src/core/crypto.js` | `CryptoUtil`, `BackupCrypto`, `KeyCrypto`, `RecoveryWords` | AES-256-GCM + PBKDF2 for the export file (`.rnos`); the data key, its wrapping, record encryption; the 12 recovery words |
+| `src/core/store.js` | `Store` | The on-device database: the only code that reads or writes saved data, and holds the key while unlocked |
+| `src/core/lock.js` | `LockScreen` | The lock screen: first-time setup (passphrase, recovery words), unlock, recovery |
 | `src/core/retention.js` | `Retention` | Discharged patients: when they move to the archive and when they are deleted (pure functions) |
 | `src/core/transfer.js` | `Transfer` | Export payload and the merging import (pure functions) |
 | `src/clinical/dotphrases.js` | dot-phrase data | Note templates |
@@ -80,8 +82,13 @@ and `app.js` stays last. There are no imports or bundling.
   to reload. If IndexedDB can't be opened, or the one-time move from `localStorage['roundingos_hospitalist_v1']`
   fails its check, the app keeps saving to `localStorage` as before.
 - Database `roundingos` (tests use `roundingos-test` via `index.html?testdb=1`): `meta`, `patients` (id, purgeAfter),
-  `settings`, `snapshots`, `tombstones`. Each record sits in a `payload` tagged `{ fmt: 'plain' }`; phase 4
-  adds an encrypted format in `encodeRecord`/`decodeRecord` without a schema change.
+  `settings`, `snapshots`, `tombstones`. Each record sits in a `payload`: `{ fmt: 'aes-gcm-1', iv, ct }` once set up,
+  with the table and id bound in as AES-GCM additional data. `meta['crypto']` holds the data key wrapped by the
+  passphrase and by the recovery key, never the key itself. Before setup (phase-3 databases, unit tests) payloads are
+  `{ fmt: 'plain', json }`; `Store.setup()` seals them all in one transaction and checks them by re-reading.
+- Startup: `Store.open()`, then the lock screen (`LockScreen.runSetup` the first time, else `runUnlock`), then
+  `Store.load()`. Locking (idle timer or ⋯ → Lock now) writes pending edits, drops the key and reloads the page.
+  Once a database is encrypted the app never falls back to `localStorage`.
 - Discharged patients (`dischargedAt`, `archivedAt` on the patient) are hidden from the census, sign-out and
   rollover once archived, and deleted after the window in `state.retention` (defaults: archive right away, delete
   after 30 days), from the database and from snapshots. Settings & backup → Saved copies lists, restores and
@@ -98,8 +105,8 @@ The full plan is in [`plan.md`](plan.md). In short:
   Hosted as code only on GitHub Pages. `server.ps1` and the `.bat` launcher go away.
 - **Calculators (phase 2, done):** `calc.js` holds each calculator as a pure function; `planbuilder.js` only wires the DOM.
   Tests live in `tests/` (a browser test page, no dependencies): `calc.test.js`, `dictation.test.js`, `commands.test.js`.
-- **Encrypted storage (phase 3):** `src/core/store.js` (Dexie/IndexedDB, per-record AES-GCM, passphrase + recovery words)
-  is the only code that touches storage or keys. `app.js` keeps its `state` object and `saveState()` callers;
+- **On-device database (phase 3) and encryption (phase 4):** `src/core/store.js` (Dexie/IndexedDB, per-record AES-GCM,
+  passphrase + recovery words) is the only code that touches storage or keys. `app.js` keeps its `state` object and `saveState()` callers;
   only load/save changes. `src/core/transfer.js` does export/import with merge.
 - **On-device voice (phase 4):** `src/speech/voice.js` adapter over Vosk (commands) and Whisper/Moonshine (dictation).
   `speech.js` keeps the text side (clean-up and command parsing). Cloud speech only as an explicit opt-in.

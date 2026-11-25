@@ -6,6 +6,7 @@ file to `APP_FILES` in `sw.js` if its name changed, and bump `CACHE_VERSION`.
 
 | Library | Version | Files | Source | License | SHA-256 of the main file |
 |---|---|---|---|---|---|
+| BIP-39 English word list | bips master (list unchanged since 2013) | `bip39/english.js` | `bitcoin/bips` `bip-0039/english.txt`, wrapped as a JS array | not stated in BIP-39 (a word list, no code) | `english.txt`: `2f5eed53a4727b4bf8880d8f3f199efc90e58503646d9ff8eff3a2ed3b24dbda` |
 | Dexie.js | 4.4.7 | `dexie/dexie.min.js`, `dexie/LICENSE`, `dexie/NOTICE` | npm `dexie@4.4.7`, `dist/dexie.min.js` | Apache-2.0 | `cb8f25adfa9df62e466ab2ce0c1d7c06cfc0dd2651256b2b022ccd923bfc9a1a` |
 | vosk-browser (Vosk, commands) | 0.0.8 | `vosk-browser/vosk.js`, `vosk-browser/LICENSE` | npm `vosk-browser@0.0.8`, `dist/vosk.js`, **patched** with `scripts/vendor/patch-vosk.py` (no `new Function`, for the CSP) | Apache-2.0 | `1a0156a1…` see below |
 | transformers.js (Whisper / Moonshine) | 3.8.1 | `transformers/transformers.min.js`, `transformers/ort-wasm-simd-threaded.jsep.mjs`, `transformers/ort-wasm-simd-threaded.jsep.wasm`, `transformers/LICENSE` | npm `@huggingface/transformers@3.8.1`, `dist/` (the ONNX runtime files ship in the same folder) | Apache-2.0 | `aa5002b70e789798da263f5f99c62bd3e8fcd0c119258a493c40c180648365fa` |

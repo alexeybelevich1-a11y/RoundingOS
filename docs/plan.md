@@ -2,7 +2,7 @@
 
 *Written 2026-11-24 against `main` at `5a939f7`.*
 *Revised the same day at Anton's request: PWA first (Android first), then calculators, then the on-device database, then encryption as its own phase, then on-device voice.*
-*Status: phases 1 and 2 are merged (PRs #2–#6), apart from the manual checks. Phase 3 is merged (PR #8) and its last two pieces (discharge archive, saved copies screen) are in review. Phase 4 (encryption) is on hold at Anton's request.*
+*Status: phases 1 and 2 are merged (PRs #2–#6), apart from the manual checks. Phase 3 is merged (PRs #8, #9). Phase 4 (encryption) is built and in review (2026-11-25), with 12 recovery words pending Anton's confirmation. Phase 5 (on-device voice, Beta) is in progress.*
 
 Individual tasks are tracked separately (planned as GitHub issues). This file is the design and order of work; update it when a decision changes.
 
@@ -238,18 +238,21 @@ Manual, on both devices:
 | File | Change |
 |---|---|
 | `src/core/crypto.js` | Keeps the export/import format. New files use 600,000 PBKDF2 iterations instead of 150,000; when opening a file it reads `iterations` from the envelope, so old exports still open. Gains the helpers `store.js` needs: generate a data key, wrap/unwrap it with a passphrase or recovery key, and encrypt/decrypt a record with an existing key. |
-| `vendor/bip39-english.txt` (or similar) | **New.** A standard 2048-word list for the recovery words. |
+| `vendor/bip39/english.js` | **New.** The standard BIP-39 2048-word list for the recovery words, as a JS array. |
+| `src/core/lock.js` | **New.** The lock screen (setup, unlock, recovery), UI only; `app.js` passes in the `Store` calls. |
 | `src/core/store.js` | `encodeRecord`/`decodeRecord` switch to AES-GCM. Adds `status()`, `setup(passphrase)` → recovery words, `unlock(passphrase)`, `unlockWithRecovery(words)`, `lock()`, and `sealAll()` (the one-time pass that encrypts existing rows). |
-| `src/core/app.js` | Shows the unlock/setup modal before loading, adds "Lock now" to the menu, and adds an idle auto-lock (default 15 minutes, set in settings). |
+| `src/core/app.js` | Shows the unlock/setup modal before loading, adds "Lock now" to the menu, and adds an idle auto-lock (default 15 minutes; 5/15/30/60 in Settings & backup). |
 | `index.html` | One unlock/setup modal, using the markup pattern and classes of the existing passphrase modal. Remove the "not encrypted, test data only" banner. |
 | `README.md` | Privacy and backup sections updated: data is encrypted; keep the recovery words safe. |
-| `tests/crypto.test.js`, additions to `tests/store.test.js` | **New / extended.** |
+| `tests/crypto.test.js`, `tests/harness.js` | **New / extended.** The harness answers the lock screen when it loads the app. |
 
 ### Keys, in plain terms
 
 - On first setup the app makes a random 256-bit **data key**. Every record is encrypted with it (AES-GCM, with a fresh random IV on every write).
-- The data key is stored twice in `meta`, never in the clear: once locked by your **passphrase** (PBKDF2-SHA256, 600,000 iterations), and once locked by a **recovery key** shown one time as 24 words for you to write down or print.
-- When you unlock, the data key lives only in memory as a non-extractable `CryptoKey`. The app locks itself after the idle time and when you choose "Lock now".
+- The data key is stored twice in `meta`, never in the clear: once locked by your **passphrase** (PBKDF2-SHA256, 600,000 iterations), and once locked by a **recovery key** shown one time as **12 words** (BIP-39: 128 random bits plus a checksum, so a typo is caught) for you to write down. The recovery key is derived with HKDF-SHA256: 128 random bits need no slow key derivation.
+- Each record's table and id are bound in as AES-GCM additional data, so encrypted rows can't be swapped between patients.
+- When you unlock, the data key lives only in memory as a non-extractable `CryptoKey`. The app locks itself after the idle time and when you choose "Lock now". Locking writes pending edits, drops the key and reloads the page, so nothing readable stays on screen or in memory; it also locks the app's other open tabs.
+- **Recovery words can be dropped** with one switch (`RECOVERY_WORDS` in `app.js`): setup then asks only for the passphrase and says that forgetting it loses that device's data. Devices already set up keep their recovery slot.
 - If you forget the passphrase and lose the recovery words, the data is gone. That's the trade for real encryption, and the README and the setup screen say so.
 
 ### Data migration (plain rows → encrypted rows, no schema change)
@@ -257,9 +260,9 @@ Manual, on both devices:
 This is not a database migration: the tables, keys and indexes from phase 3 stay exactly as they are. On the first start after the update:
 
 1. The app shows **Setup**: offer an encrypted export as a backup (recommended), then the passphrase twice, then the recovery words, then type 3 of them back.
-2. `Store.sealAll()` reads every row with `codec: "plain"`, writes it back as `codec: "aes-gcm-1"` with `{ iv, ct }`, all in one transaction, and sets `meta.codec = "aes-gcm-1"`.
-3. It re-reads every row with the new key and checks the counts and ids. If anything fails, the transaction rolls back and the plain rows stay as they were.
-4. Snapshots are sealed the same way.
+2. `Store.setup()` encrypts every row with `fmt: "plain"` (patients, including archived ones, settings and saved copies) to `fmt: "aes-gcm-1"` with `{ iv, ct }`, checks each by decrypting it, then writes them all and `meta['crypto']` in one transaction. If the rows changed in between, the transaction is abandoned.
+3. It re-reads every row with the new key and checks the counts, ids and contents. If anything fails, the original plain rows are put back and the database is not marked encrypted.
+4. Any old `localStorage` save is moved into the database first (phase 3's checked move), so it is sealed in the same pass.
 
 `decodeRecord` keeps reading `"plain"` rows, so a row that somehow missed the pass still opens; the next save encrypts it. After a successful seal, the app refuses to write new plain rows.
 
@@ -272,7 +275,8 @@ This is not a database migration: the tables, keys and indexes from phase 3 stay
 | Forgotten passphrase | Recovery words at setup, with a "confirm you saved them" step. |
 | Seal pass fails midway | One transaction: it either encrypts everything or nothing. Verified by re-reading before the plain mode is switched off. |
 | Unlock friction on rounds | 600k PBKDF2 takes ~0.3–1 s on a phone, once per unlock, not per save. The idle lock time is configurable. Biometric unlock (WebAuthn PRF) is a possible later addition, not part of this plan. |
-| Locked app while a reminder is due | Reminder times are kept in memory while unlocked; when locked, a reminder shows a generic "RoundingOS reminder" notification without patient details. |
+| Locked app while a reminder is due | On lock, the due times of open reminders (times only, no text or patient) are kept for that tab in `sessionStorage`; while locked, a due reminder shows a generic "RoundingOS reminder" notification and a note on the lock screen. |
+| Encrypted database fails to open | The app never falls back to plain `localStorage` once the data is encrypted; it shows the error instead. The plain fallback (with the "Not encrypted on this device" banner) remains only for browsers where IndexedDB or WebCrypto is missing. |
 
 ### Acceptance checks
 
@@ -375,6 +379,6 @@ Run on both devices after phase 4, before any real patient. Re-run the voice ite
 
 ## Decisions for you
 
-1. **Recovery words** (phase 4): print or write them down (recommended), or skip them and accept that a forgotten passphrase loses the data.
+1. **Recovery words** (phase 4): built in, 12 words written down at setup (recommended), pending your confirmation. Dropping them is one switch, and then a forgotten passphrase loses that device's data.
 2. **Public repo** (phase 1): fine for code, but anyone can see the dot phrases. Keep it public, or move to a private repo + Cloudflare Pages/Access.
 3. **Model download** (phase 5): from Hugging Face once (simpler), or self-hosted, so the app never contacts a third party.

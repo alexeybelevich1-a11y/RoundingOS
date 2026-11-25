@@ -647,6 +647,15 @@ input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px;
   display: flex; flex-direction: column; overflow: hidden;
 }
 .modal-sm { max-width: 420px; }
+/* Lock screen: covers the whole app, nothing behind it shows through */
+.lock-backdrop { background: var(--bg-app); }
+.recovery-words {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s1) var(--s4);
+  margin: var(--s3) 0; padding: var(--s3) var(--s3) var(--s3) calc(var(--s3) + 24px);
+  background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-md, 8px);
+  font: 600 var(--fs-md, 15px) var(--font-mono, ui-monospace, monospace);
+}
+@media print { .lock-backdrop { display: none !important; } }
 .modal-md { max-width: 640px; }
 .modal-xl { max-width: 980px; }
 .modal-header { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); padding: var(--s3) var(--s5); border-bottom: 1px solid var(--border); }

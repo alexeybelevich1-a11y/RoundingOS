@@ -6,6 +6,15 @@ Changed: `index.html`, `styles.css`, `app.js`, `data.js`, `progressnote.js`, `pl
 Saved data migrates automatically: the legacy `weights` checklist key becomes `bm`, and the UI state is reset to the new layout once.
 
 
+## Encryption on the device (phase 4)
+- **Setup on first start:** choose a passphrase (twice), write down 12 recovery words, and type three of them back. A device that already has patients offers an encrypted backup first, then encrypts everything in one step and checks it.
+- Every record is encrypted (AES-256-GCM): patients, the archive, settings and saved copies. The database shows only ids, dates and counts.
+- **Lock screen** when the app opens. ⋯ → **Lock now**, and an automatic lock after 15 minutes without use (5, 15, 30 or 60 in Settings & backup). Locking clears the screen and memory; other open tabs lock too.
+- **Forgot passphrase?** on the lock screen: the 12 recovery words open the data and set a new passphrase.
+- While locked, a due reminder shows only "A reminder is due. Unlock to see it."
+- Encrypted backups (.rnos) now use 600,000 PBKDF2 rounds instead of 150,000. Older backups still import.
+- The "Not encrypted yet: use test patients only" banner and badge are gone. They come back only on a browser where the encrypted database can't open and the app falls back to plain storage (cache v1.7.0).
+
 ## Test data link removed
 - The short-lived `?demo=1` link and the "Open with test data" icon shortcut are removed. Use ⋯ → Add 14 test patients, or **Load test patients** on an empty census (cache v1.6.4).
 

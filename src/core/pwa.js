@@ -115,19 +115,6 @@
     if (item) item.classList.add('hidden');
   });
 
-  /* ---------- "Not encrypted yet" banner: every launch, hidden for the session on × ---------- */
-  document.addEventListener('DOMContentLoaded', () => {
-    const banner = $('testDataBanner');
-    if (!banner) return;
-    let dismissed = false;
-    try { dismissed = sessionStorage.getItem('roundingos_testdata_banner') === 'hidden'; } catch (e) { /* ignore */ }
-    banner.classList.toggle('hidden', dismissed);
-    $('testDataBannerClose').addEventListener('click', () => {
-      banner.classList.add('hidden');
-      try { sessionStorage.setItem('roundingos_testdata_banner', 'hidden'); } catch (e) { /* ignore */ }
-    });
-  });
-
   document.addEventListener('DOMContentLoaded', () => {
     const item = $('installAppBtn');
     if (!item) return;
