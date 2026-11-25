@@ -120,8 +120,8 @@ cleared or approved by any regulator. It does not replace clinical judgment. Ver
 result, score and threshold against the original source before acting on it. The software is provided
 "as is", without warranty of any kind (see sections 15 and 16 of the license).
 
-Data on the device is encrypted with your passphrase. If the encrypted database can't open on a browser (the app
-then shows "Not encrypted on this device"), it falls back to plain browser storage: **use test data only** there.
+Data on the device is encrypted with your passphrase. There is no unencrypted fallback: if the encrypted database
+can't open on a browser, the app saves nothing there and shows "Can't store data securely in this browser".
 
 ## License
 Copyright 2026 Alexey Belevich and RoundingOS contributors.

@@ -6,8 +6,8 @@ Changed: `index.html`, `styles.css`, `app.js`, `data.js`, `progressnote.js`, `pl
 Saved data migrates automatically: the legacy `weights` checklist key becomes `bm`, and the UI state is reset to the new layout once.
 
 
-## Test patients only when the database can't open
-- On a browser where the encrypted database can't be used, the app now keeps test patients only. Adding or editing a real patient there is refused with a message, nothing real is written to browser storage in plain text, and the "Not encrypted" banner can't be hidden. Data saved there by an older version still opens, so it can be exported and moved (cache v1.7.5).
+## No unencrypted fallback storage
+- The app no longer falls back to plain browser storage (localStorage) when the encrypted database can't be used. In that case nothing is saved, and a banner that can't be hidden says so. The installed app always has the encrypted database, so normal use is unchanged; test patients are saved in the encrypted database like any others. Data an older version left in browser storage still moves into the database the first time the app opens normally (cache v1.7.5).
 
 ## Generic reminder notifications
 - The system notification for a due reminder now always says only "RoundingOS reminder · A reminder is due. Open the app to see it." The patient and the reminder text show only in the popup inside the app, so they no longer appear on the lock screen, in notification history or on a watch (cache v1.7.4).
