@@ -105,4 +105,68 @@
       assert(!list.some(r => r.reason === 'before clear census'), 'deleted from the database');
     } finally { app.restore(); app.frame.remove(); }
   });
+  /* ---- HIPAA H6: reminders don't outlive the patient */
+  test('reminders (app): deleting a patient for good deletes their reminders; removing drops the name (H6)', async () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const iso = ms => new Date(ms).toISOString();
+    const later = iso(now + 6 * 60 * 60 * 1000);
+    const rem = (id, patientId, patientLabel) => ({
+      id, text: `Recheck labs (${id})`, dueAt: later, patientId, patientLabel,
+      playSound: false, triggered: false, dismissed: false, createdAt: iso(now)
+    });
+    const p = (id, extra = {}) => ({ ...pt(id), ...extra });
+    const state = {
+      ...getDefaultAppState(),
+      patients: [
+        p('act1'), p('act2'),
+        p('arc1', { dischargedAt: iso(now), archivedAt: iso(now) }),
+        p('old1', { dischargedAt: iso(now - 40 * DAY), archivedAt: iso(now - 40 * DAY) })
+      ],
+      selectedPatientId: 'act2',
+      reminders: [
+        rem('r-act2', 'act2', 'Rm ACT2 · Test act2'),
+        rem('r-arc1', 'arc1', 'Rm ARC1 · Test arc1'),
+        rem('r-old1', 'old1', 'Rm OLD1 · Test old1'),
+        rem('r-legacy', null, 'Rm 9 · Test legacy (removed)'),
+        rem('r-general', null, '')
+      ]
+    };
+    await Dexie.delete(APP_TEST_DB);
+    await withStore(APP_TEST_DB, s => s.save(state));
+    const app = await loadApp(null, { keepDb: true });
+    try {
+      const byId = s => Object.fromEntries((s.reminders || []).map(r => [r.id, r]));
+      // automatic purge of old1 at startup, and the old "(removed)" label loses its name
+      let saved = await waitFor(async () => {
+        const s = await readAppDb();
+        return s && !byId(s)['r-old1'] && byId(s)['r-legacy']?.patientLabel === 'Removed patient' && s;
+      }, 4000, 'purge and relabel saved');
+      assert(byId(saved)['r-general'], 'general reminder kept');
+      app.win.confirm = () => true;
+      // Remove from census (active): reminder kept, without the name
+      app.doc.getElementById('deletePatientBtn').click();
+      saved = await waitFor(async () => {
+        const s = await readAppDb();
+        return s && !s.patients.some(x => x.id === 'act2') && s;
+      }, 4000, 'act2 removed');
+      const kept = byId(saved)['r-act2'];
+      assert(kept, 'reminder kept');
+      assertEqual(kept.patientLabel, 'Removed patient', 'label');
+      assertEqual(kept.patientId, null, 'unlinked');
+      // Delete now (archived): reminder deleted
+      const sel = app.doc.getElementById('filterSelect');
+      sel.value = 'archived';
+      sel.dispatchEvent(new app.win.Event('change'));
+      app.doc.querySelector('[data-patient-id="arc1"]').click();
+      app.doc.getElementById('deletePatientBtn').click();
+      saved = await waitFor(async () => {
+        const s = await readAppDb();
+        return s && !s.patients.some(x => x.id === 'arc1') && s;
+      }, 4000, 'arc1 deleted');
+      assert(!byId(saved)['r-arc1'], 'reminder deleted with the patient');
+      const all = JSON.stringify(saved.reminders);
+      assert(!/Test (act2|arc1|old1|legacy)/.test(all), 'no removed patient names left in reminders');
+    } finally { app.restore(); app.frame.remove(); }
+  });
 })();

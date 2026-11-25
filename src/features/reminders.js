@@ -481,7 +481,13 @@ const ReminderEngine = (() => {
 
   /** Call once saved state is loaded: alarms that rang but were never acknowledged ring again. */
   function onStateLoaded() {
-    getReminders().forEach(r => { if (r.triggered && !r.dismissed) r.triggered = false; });
+    let relabeled = false;
+    getReminders().forEach(r => {
+      if (r.triggered && !r.dismissed) r.triggered = false;
+      // older versions kept "Rm 12 · Name (removed)"; drop the name
+      if (!r.patientId && / \(removed\)$/.test(r.patientLabel || '')) { r.patientLabel = REMOVED_LABEL; relabeled = true; }
+    });
+    if (relabeled) hooks.saveState();
     renderClockAndBadge();
     checkDueReminders();
   }
@@ -490,17 +496,34 @@ const ReminderEngine = (() => {
     return Boolean(activeAlertId);
   }
 
-  /** Called when a patient is removed: keep the reminder but unlink it. */
+  // Label for a reminder whose patient left the census. No name or room (HIPAA H6).
+  const REMOVED_LABEL = 'Removed patient';
+
+  /** Called when a patient is removed from the census: keep the reminder, drop the patient's name. */
   function unlinkPatient(patientId) {
     let changed = false;
     getReminders().forEach(r => {
       if (r.patientId === patientId) {
         r.patientId = null;
-        r.patientLabel = r.patientLabel ? `${r.patientLabel} (removed)` : '';
+        r.patientLabel = r.patientLabel ? REMOVED_LABEL : '';
         changed = true;
       }
     });
-    if (changed) { hooks.saveState(); renderModalList(); }
+    if (changed) { hooks.saveState(); renderModalList(); renderClockAndBadge(); }
+  }
+
+  /** Called when a patient is deleted for good (Delete now, automatic purge): their reminders go too. */
+  function deletePatientReminders(patientId) {
+    const st = hooks?.getState?.();
+    if (!st) return;
+    const before = getReminders();
+    const gone = before.filter(r => r.patientId === patientId);
+    if (!gone.length) return;
+    st.reminders = before.filter(r => r.patientId !== patientId);
+    if (gone.some(r => r.id === activeAlertId)) closeAlertPopup();
+    hooks.saveState();
+    renderClockAndBadge();
+    renderModalList();
   }
 
   return {
@@ -510,6 +533,7 @@ const ReminderEngine = (() => {
     closeAlertPopup,
     snoozeActive: (min) => { if (activeAlertId) snoozeReminder(activeAlertId, min); },
     unlinkPatient,
+    deletePatientReminders,
     openModal,
     closeModal,
     addReminder,

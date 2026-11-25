@@ -7,7 +7,7 @@
  * This file caches app code only. Patient data lives in the on-device database
  * (IndexedDB, see src/core/store.js) and is never cached here or sent anywhere.
  */
-const CACHE_VERSION = 'roundingos-v1.7.2';
+const CACHE_VERSION = 'roundingos-v1.7.8';
 
 const APP_FILES = [
   './',
