@@ -35,7 +35,7 @@
 
   /* Load the app in an iframe with an empty test database and a clean old-storage key.
      seed: undefined = leave localStorage as is, null = remove it, object = old save to migrate. */
-  window.loadApp = async (seed, { keepDb = false, query = '' } = {}) => {
+  window.loadApp = async (seed, { keepDb = false } = {}) => {
     if (!keepDb) await Dexie.delete(APP_TEST_DB);
     return new Promise((resolve, reject) => {
       const KEY = 'roundingos_hospitalist_v1';
@@ -43,7 +43,7 @@
       if (seed === null) localStorage.removeItem(KEY); else if (seed) localStorage.setItem(KEY, JSON.stringify(seed));
       const frame = document.createElement('iframe');
       frame.className = 'app-frame';
-      frame.src = `../index.html?testdb=1${query}`;
+      frame.src = '../index.html?testdb=1';
       const restore = () => { if (backup === null) localStorage.removeItem(KEY); else localStorage.setItem(KEY, backup); };
       const timer = setTimeout(() => { restore(); reject(new Error('app did not load in 10 s')); }, 10000);
       frame.addEventListener('load', () => {
