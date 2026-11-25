@@ -5,8 +5,9 @@ Local-first hospitalist rounding workstation: census, checklists, tasks, consult
 I-PASS sign-out, alarms and voice dictation.
 Plain HTML/CSS/JavaScript with no dependencies and no build step.
 
-> **Test data only for now.** Patient data is saved **unencrypted** in the browser's on-device database.
-> Do not enter real patient information until encrypted storage lands (phase 4 of the local-first plan).
+> **Encrypted on the device.** Every patient record is encrypted with your passphrase (phase 4 of the
+> local-first plan). Before the first real patient, run the release checklist in `docs/plan.md` on each device.
+> Keep **Voice** off for real patients until on-device voice ships: cloud speech sends audio off the device.
 
 ## Install (Android first, then laptop and iPhone)
 RoundingOS is a Progressive Web App served as static files from GitHub Pages:
@@ -16,11 +17,22 @@ RoundingOS is a Progressive Web App served as static files from GitHub Pages:
 - **Laptop (Chrome / Edge):** the install icon at the right of the address bar, or **⋯ → Install app…**.
 - **iPhone (Safari):** **Share → Add to Home Screen**. Safari has no install prompt, so the menu item shows these steps.
 
-A fresh install starts with an **empty census**. ⋯ → **Add 14 test patients** loads the sample patients.
+A fresh install first asks you to **choose a passphrase** and shows **12 recovery words** to write down (you type
+three of them back to check). Then it starts with an **empty census**. ⋯ → **Add 14 test patients** loads the sample patients.
+
+## Passphrase, recovery words and locking
+- Every record (patients, the archive, settings and saved copies) is encrypted with AES-256-GCM using a random key.
+  That key is stored only locked by your passphrase (PBKDF2-SHA256, 600,000 rounds) and by your recovery words.
+- The app opens locked and **locks itself** after 15 minutes without use (5, 15, 30 or 60 in ⋯ → Settings & backup),
+  and when you choose ⋯ → **Lock now**. Locking reloads the page, so no patient data stays on screen or in memory.
+- **Forgot the passphrase?** On the lock screen, *Forgot passphrase?* takes your 12 recovery words and a new passphrase.
+- **Keep the recovery words safe and away from the device.** Without the passphrase and the words, the data on that
+  device cannot be opened by anyone, including you. Export an encrypted backup regularly.
+- Each device has its own passphrase and words. Backups (.rnos) have their own passphrase, typed at export.
 
 ## Where data lives
-- Only on the device, in the installed app's on-device database (IndexedDB, one record per patient; see
-  `src/core/store.js`). The first start after the update moves older data out of `localStorage` and deletes the
+- Only on the device, in the installed app's on-device database (IndexedDB, one encrypted record per patient; see
+  `src/core/store.js`). Only ids, dates and counts are readable there. The first start after the update moves older data out of `localStorage` and deletes the
   old copy only after checking the move. The web address serves code only;
   nothing is uploaded. The app's Content-Security-Policy blocks network requests to any other address.
 - **Discharged patients:** Actions → *Discharged: move to archive* takes a patient off the census (the census
@@ -108,7 +120,8 @@ cleared or approved by any regulator. It does not replace clinical judgment. Ver
 result, score and threshold against the original source before acting on it. The software is provided
 "as is", without warranty of any kind (see sections 15 and 16 of the license).
 
-Until on-device encryption ships, data is stored unencrypted in the browser: **use test data only.**
+Data on the device is encrypted with your passphrase. If the encrypted database can't open on a browser (the app
+then shows "Not encrypted on this device"), it falls back to plain browser storage: **use test data only** there.
 
 ## License
 Copyright 2026 Alexey Belevich and RoundingOS contributors.

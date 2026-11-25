@@ -162,20 +162,44 @@
   const DB_NAME = new URLSearchParams(location.search).has('testdb') ? 'roundingos-test' : 'roundingos';
   const TAB_ID = Math.random().toString(36).slice(2);
   const SAVE_DELAY_MS = 300;
-  let storageMode = 'loading'; // 'loading' | 'db' | 'local' (IndexedDB unavailable or migration failed)
+  // 'loading' | 'db' (encrypted database, unlocked) | 'local' (IndexedDB or WebCrypto unavailable:
+  // plain localStorage, test data only) | 'locked' (locking: nothing more is written) | 'error'
+  let storageMode = 'loading';
   let saveTimer = null;
   let saveChannel = null;
+  // Recovery words at setup (recommended). false = set up with a passphrase only; a forgotten
+  // passphrase then loses this device's data. Devices already set up keep whatever they have.
+  const RECOVERY_WORDS = true;
+  const DEFAULT_AUTO_LOCK_MINUTES = 15;
+  const LOCKED_REMINDERS_KEY = 'roundingos_locked_reminders'; // due times only, no patient details
 
   function updateStorageBadge() {
     const timeStr = state.lastSavedAt
       ? new Date(state.lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : '';
-    el.storageBadgeText.textContent = `Saved on this device · ${timeStr} · not encrypted: test data only`;
+    el.storageBadgeText.textContent = storageMode === 'local'
+      ? `Saved on this device · ${timeStr} · not encrypted: test data only`
+      : `Saved on this device · ${timeStr} · encrypted`;
   }
+
+  /** The "not encrypted" banner: only in the plain localStorage fallback. Hidden for the session on ×. */
+  function updateTestDataBanner() {
+    const banner = $('testDataBanner');
+    if (!banner) return;
+    let dismissed = false;
+    try { dismissed = sessionStorage.getItem('roundingos_testdata_banner') === 'hidden'; } catch (e) { /* ignore */ }
+    banner.classList.toggle('hidden', storageMode !== 'local' || dismissed);
+    $('lockNowBtn')?.classList.toggle('hidden', storageMode !== 'db');
+  }
+  $('testDataBannerClose')?.addEventListener('click', () => {
+    $('testDataBanner').classList.add('hidden');
+    try { sessionStorage.setItem('roundingos_testdata_banner', 'hidden'); } catch (e) { /* ignore */ }
+  });
 
   /** Synchronous for its ~70 callers: the database write follows after a short pause. */
   function saveState() {
-    if (storageMode === 'loading') return; // never overwrite saved data with the empty startup state
+    // never overwrite saved data with the empty startup state, and never write while locking
+    if (storageMode !== 'db' && storageMode !== 'local') return;
     state.lastSavedAt = new Date().toISOString();
     if (storageMode === 'local') {
       try {
@@ -258,7 +282,9 @@
     if (storageMode === 'db' && typeof BroadcastChannel === 'function') {
       saveChannel = new BroadcastChannel(`roundingos:${DB_NAME}`);
       saveChannel.addEventListener('message', async e => {
-        if (!e.data || e.data.type !== 'changed' || e.data.from === TAB_ID) return;
+        if (!e.data || e.data.from === TAB_ID) return;
+        if (e.data.type === 'lock') { lockNow({ broadcast: false }); return; }
+        if (e.data.type !== 'changed' || storageMode !== 'db') return;
         try {
           const incoming = await Store.load();
           if (!incoming || !Array.isArray(incoming.patients)) return;
@@ -282,18 +308,43 @@
     }
   }
 
-  /** Opens the database; the first time, copies the old localStorage save into it. */
+  /**
+   * Opens the database and unlocks it. The first time (new install, or a phase-3 database with
+   * plain rows), copies any old localStorage save in, then runs Setup, which encrypts it all.
+   */
   async function openSavedState() {
+    let encrypted = false;
     try {
+      CryptoUtil.requireSubtle();
       await Store.open(DB_NAME);
-      let saved = await Store.load();
-      if (!saved) {
-        const result = await Store.migrateFromLocalStorage();
-        if (result.migrated) saved = await Store.load();
+      if (Store.status().encrypted) {
+        encrypted = true;
+        await showUnlockScreen();
+      } else {
+        let plain = await Store.load();
+        if (!plain) {
+          const result = await Store.migrateFromLocalStorage();
+          if (result.migrated) plain = await Store.load();
+        }
+        const tombstones = plain ? await Store.getTombstones().catch(() => []) : [];
+        await LockScreen.runSetup({
+          withRecovery: RECOVERY_WORDS,
+          patientCount: plain ? plain.patients.length : 0,
+          onExportBackup: plain && plain.patients.length ? () => exportEncryptedBackup(Transfer.buildExport(plain, tombstones)) : null,
+          complete: (passphrase, words) => Store.setup(passphrase, words)
+        });
+        encrypted = true;
       }
+      const saved = await Store.load();
       storageMode = 'db';
       return saved;
     } catch (err) {
+      if (encrypted) {
+        // never fall back to plain storage once the data is encrypted
+        storageMode = 'error';
+        showToast(`Could not open the encrypted data (${err.message}). Reload to try again.`, 'error');
+        return null;
+      }
       // IndexedDB missing, or the copy could not be verified: keep using localStorage, which is untouched
       Store.close();
       storageMode = 'local';
@@ -319,6 +370,7 @@
 
     const saved = await openSavedState();
     startTabSync();
+    updateTestDataBanner();
 
     if (saved && Array.isArray(saved.patients)) {
       applyLoadedState(saved);
@@ -336,7 +388,87 @@
     });
     document.documentElement.dataset.storeReady = storageMode;
     if (typeof ReminderEngine !== 'undefined') ReminderEngine.onStateLoaded();
+    startAutoLock();
   }
+
+  /* ---------- Lock: unlock screen, "Lock now", idle auto-lock ---------- */
+  let lockedReminderTimer = null;
+  let locking = false;
+  let lastActivity = Date.now();
+
+  /** Unlock screen. While it shows, reminders that come due show only a generic note. */
+  async function showUnlockScreen() {
+    let due = [];
+    try { due = JSON.parse(sessionStorage.getItem(LOCKED_REMINDERS_KEY) || '[]'); } catch (e) { due = []; }
+    const notified = new Set();
+    const checkDue = () => {
+      const now = Date.now();
+      const hit = due.filter(t => Date.parse(t) <= now);
+      LockScreen.setReminderNote(hit.length > 0);
+      hit.forEach(t => {
+        if (notified.has(t)) return;
+        notified.add(t);
+        try {
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('RoundingOS reminder', { body: 'A reminder is due. Unlock to see it.' });
+          }
+        } catch (e) { /* ignore */ }
+      });
+    };
+    if (due.length) { checkDue(); lockedReminderTimer = setInterval(checkDue, 15000); }
+    try {
+      await LockScreen.runUnlock({
+        hasRecovery: Store.status().hasRecovery,
+        unlock: pass => Store.unlock(pass),
+        recover: (words, newPass) => Store.unlockWithRecovery(words, newPass)
+      });
+    } finally {
+      clearInterval(lockedReminderTimer);
+      lockedReminderTimer = null;
+      try { sessionStorage.removeItem(LOCKED_REMINDERS_KEY); } catch (e) { /* ignore */ }
+    }
+  }
+
+  /**
+   * Writes pending edits, forgets the key, and reloads: the page then holds no patient data
+   * and opens on the unlock screen. Due times of open reminders (no text, no patient) are kept
+   * for this tab only, so a reminder can still ring generically while locked.
+   */
+  async function lockNow({ broadcast = true } = {}) {
+    if (storageMode !== 'db' || locking) return;
+    locking = true;
+    try { await flushSave(); } catch (e) { /* the write shows its own error */ }
+    storageMode = 'locked';
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    try {
+      const due = (state.reminders || []).filter(r => r && r.dueAt && !r.triggered).map(r => r.dueAt);
+      sessionStorage.setItem(LOCKED_REMINDERS_KEY, JSON.stringify(due));
+    } catch (e) { /* ignore */ }
+    if (broadcast && saveChannel) saveChannel.postMessage({ type: 'lock', from: TAB_ID });
+    await Store.lock().catch(() => {});
+    location.reload();
+  }
+
+  function autoLockMinutes() {
+    const m = Number(state.autoLockMinutes);
+    return [5, 15, 30, 60].includes(m) ? m : DEFAULT_AUTO_LOCK_MINUTES;
+  }
+
+  function checkIdle() {
+    if (storageMode === 'db' && Date.now() - lastActivity >= autoLockMinutes() * 60000) lockNow();
+  }
+
+  function startAutoLock() {
+    if (storageMode !== 'db') return;
+    const touch = () => { lastActivity = Date.now(); };
+    ['pointerdown', 'keydown', 'wheel', 'touchstart', 'input'].forEach(ev => document.addEventListener(ev, touch, { capture: true, passive: true }));
+    setInterval(checkIdle, 20000);
+    // timers sleep in a background tab: check as soon as the app is visible again
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkIdle(); });
+  }
+
+  $('lockNowBtn').addEventListener('click', () => { closeToolsMenu(); lockNow(); });
 
   /** Older saves: legacy 'weights' checklist key and missing fields. */
   function migratePatients() {
@@ -1750,6 +1882,7 @@
     const r = Retention.settingsOf(state);
     $('setArchiveAfter').value = String(r.archiveAfterDays);
     $('setDeleteAfter').value = String(r.deleteAfterDays);
+    $('setAutoLock').value = String(autoLockMinutes());
     openModal(el.dataModal);
   });
 
@@ -1763,6 +1896,7 @@
     const dueNow = Retention.due(state.patients, retention).toDelete.length;
     if (dueNow && !confirm(`With this setting, ${dueNow} archived patient${dueNow === 1 ? ' is' : 's are'} deleted now. Continue?`)) return;
     state.retention = retention;
+    state.autoLockMinutes = Number($('setAutoLock').value) || DEFAULT_AUTO_LOCK_MINUTES;
     el.serviceHeaderLabel.textContent = state.serviceName;
     saveState();
     closeModal(el.dataModal);
@@ -1815,17 +1949,20 @@
     return Transfer.buildExport(state, tombstones);
   }
 
-  $('exportEncryptedBtn').addEventListener('click', async () => {
+  /** Asks for a passphrase and downloads `payload` (or the current state) as an encrypted .rnos file. */
+  async function exportEncryptedBackup(payload) {
     const pass = await askPassphrase({ confirmIt: true, hint: 'Encrypts the backup with AES-256 (compatible with the RoundingOS phone app). Without this passphrase the file cannot be opened.' });
     if (!pass) return;
     try {
-      const encrypted = await BackupCrypto.encryptJson(await getExportPayload(), pass);
+      const encrypted = await BackupCrypto.encryptJson(payload || await getExportPayload(), pass);
       downloadFile(`roundingos-backup-${new Date().toISOString().slice(0, 10)}.rnos`, encrypted, 'application/json');
       showToast('Encrypted backup exported');
     } catch (err) {
       showToast(`Encryption failed: ${err.message}`, 'error');
     }
-  });
+  }
+
+  $('exportEncryptedBtn').addEventListener('click', () => exportEncryptedBackup());
 
   $('exportJsonBtn').addEventListener('click', async () => {
     if (!confirm('This file contains patient information in readable form. Export unencrypted anyway?')) return;
@@ -2432,6 +2569,8 @@
 
   // Keyboard: Esc, Alt+M voice, Alt+S sign-out, Alt+P note, Alt+B Plan Builder, Alt+R alarms
   document.addEventListener('keydown', e => {
+    // the lock screen has no way out except unlocking (Esc still cancels a backup passphrase on top of it)
+    if (LockScreen.isOpen() && $('passModal').classList.contains('hidden')) return;
     if (e.key === 'Escape') {
       // A ringing alarm is never silently dismissed: Esc snoozes it 15 min
       if (ReminderEngine?.isAlertOpen?.()) { ReminderEngine.snoozeActive(15); return; }
