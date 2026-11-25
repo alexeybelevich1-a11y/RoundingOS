@@ -131,6 +131,15 @@
     return { text: a, cls: 'flag-allergy' };
   }
 
+  // Downloads land outside the encryption and often sync to personal cloud storage (HIPAA H7).
+  const READABLE_FILE_WARNING = 'This file contains patient information in readable form. Download it anyway?\n\nFiles in Downloads are not encrypted and may sync to iCloud, OneDrive or Google Drive.';
+
+  /** Same warning as the unencrypted .json export, for note and sign-out downloads. */
+  function downloadReadableFile(filename, content, mime) {
+    if (!confirm(READABLE_FILE_WARNING)) return;
+    downloadFile(filename, content, mime);
+  }
+
   function downloadFile(filename, content, mime = 'text/plain') {
     const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
@@ -1691,10 +1700,10 @@
   });
 
   $('downloadTxtBtn').addEventListener('click', () => {
-    downloadFile(`signout-${signoutMode}-${new Date().toISOString().slice(0, 10)}.txt`, el.signoutTextarea.value, 'text/plain;charset=utf-8');
+    downloadReadableFile(`signout-${signoutMode}-${new Date().toISOString().slice(0, 10)}.txt`, el.signoutTextarea.value, 'text/plain;charset=utf-8');
   });
   $('downloadMdBtn').addEventListener('click', () => {
-    downloadFile(`signout-${signoutMode}-${new Date().toISOString().slice(0, 10)}.md`, SignOutEngine.generateMarkdown(state, getSignoutOptions()), 'text/markdown;charset=utf-8');
+    downloadReadableFile(`signout-${signoutMode}-${new Date().toISOString().slice(0, 10)}.md`, SignOutEngine.generateMarkdown(state, getSignoutOptions()), 'text/markdown;charset=utf-8');
   });
 
   $('printSignoutBtn').addEventListener('click', () => {
@@ -2540,7 +2549,7 @@
     $('noteOptsMenu').classList.add('hidden');
     const p = getSelectedPatient();
     const safeRoom = (p?.room || 'patient').replace(/[^a-z0-9]/gi, '');
-    downloadFile(`progress-note-rm${safeRoom}-${new Date().toISOString().slice(0, 10)}.txt`, el.notePreview.value, 'text/plain;charset=utf-8');
+    downloadReadableFile(`progress-note-rm${safeRoom}-${new Date().toISOString().slice(0, 10)}.txt`, el.notePreview.value, 'text/plain;charset=utf-8');
   });
 
   function focusNote() {

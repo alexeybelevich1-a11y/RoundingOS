@@ -183,4 +183,30 @@
       app.frame.remove();
     }
   });
+  /* HIPAA H7: readable note and sign-out downloads ask first, like the unencrypted .json export */
+  test('downloads (app): note and sign-out .txt/.md downloads warn first and stop on Cancel (H7)', async () => {
+    const app = await loadApp(null);
+    try {
+      app.doc.getElementById('addTestPatientsBtn').click();
+      let made = 0;
+      app.win.URL.createObjectURL = () => { made++; return 'blob:test'; };
+      app.win.URL.revokeObjectURL = () => {};
+      app.win.HTMLAnchorElement.prototype.click = function () {}; // no real download in the test
+      for (const id of ['downloadTxtBtn', 'downloadMdBtn', 'pnDownloadTxtBtn']) {
+        const asked = [];
+        app.win.confirm = q => { asked.push(q); return false; };
+        const before = made;
+        app.doc.getElementById(id).click();
+        assertEqual(asked.length, 1, `${id}: asked once`);
+        assert(/readable form/.test(asked[0]), `${id}: warning text`);
+        assertEqual(made, before, `${id}: nothing downloaded after Cancel`);
+        app.win.confirm = () => true;
+        app.doc.getElementById(id).click();
+        assertEqual(made, before + 1, `${id}: downloaded after OK`);
+      }
+    } finally {
+      app.restore();
+      app.frame.remove();
+    }
+  });
 })();
