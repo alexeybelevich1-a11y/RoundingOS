@@ -566,7 +566,7 @@ function getDefaultUiState() {
     censusCollapsed: false,
     patientPaneCollapsed: false, // Center column: Active Patient workspace
     rightPaneCollapsed: false,   // 3rd column: Progress Note dock
-    patientTab: 'tasks',         // 'tasks' | 'consults' | 'plan' | 'ifthen'
+    patientTab: 'plan',          // 'plan' (Summary) | 'consults' | 'tasks' | 'ifthen'
     preroundOpen: false,         // Pre-round checklist expanded under the meter
     noteSection: 'subj',         // Open field group in the note dock: 'subj' | 'obj' | 'ap'
     noteOpts: { consults: true, tasks: true, contingencies: false, stripNotes: true },

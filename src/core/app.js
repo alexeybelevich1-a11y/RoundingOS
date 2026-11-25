@@ -793,7 +793,7 @@
     const allergy = allergyState(p);
     const pre = CHECKLIST_DEFINITIONS.preround;
     const preDone = pre.filter(d => p.checklist?.[d.id]).length;
-    const tab = state.ui.patientTab || 'tasks';
+    const tab = state.ui.patientTab || 'plan';
     const contMissing = !(p.contingencies || '').trim() && (p.priority === 'sick' || p.priority === 'watcher');
 
     const tabBtn = (key, label, extra = '') =>
@@ -867,9 +867,9 @@
       </div>
 
       <div class="pt-tabs" role="tablist">
-        ${tabBtn('tasks', 'Tasks', openTasks.length ? ` <span class="tab-count ${urgentCount ? 'is-urgent' : ''}">${openTasks.length}</span>` : '')}
-        ${tabBtn('consults', 'Consults', (p.consults || []).length ? ` <span class="tab-count ${pendingConsults ? 'is-pending' : ''}">${(p.consults || []).length}</span>` : '')}
         ${tabBtn('plan', 'Summary')}
+        ${tabBtn('consults', 'Consults', (p.consults || []).length ? ` <span class="tab-count ${pendingConsults ? 'is-pending' : ''}">${(p.consults || []).length}</span>` : '')}
+        ${tabBtn('tasks', 'Tasks', openTasks.length ? ` <span class="tab-count ${urgentCount ? 'is-urgent' : ''}">${openTasks.length}</span>` : '')}
         ${tabBtn('ifthen', 'If / then', contMissing ? ' <span class="tab-dot" title="No contingencies for a sick/watcher patient"></span>' : '')}
       </div>
 
