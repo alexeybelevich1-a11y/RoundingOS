@@ -6,12 +6,10 @@ I-PASS sign-out, alarms and voice dictation.
 Plain HTML/CSS/JavaScript with no dependencies and no build step.
 
 > [!WARNING]
-> **Proof of concept for research only. Do not use it in hospitals or for patient care.**
-> RoundingOS is an experimental research project. It has only ever been used with invented test patients and
-> contains **no real patient data**. It is **not HIPAA-ready**: a HIPAA readiness review found work still to do
-> (cloud voice, notifications, the unencrypted fallback, passphrase strength and more), and those fixes are in progress.
-> Even after them, use with real patients would need approval from the hospital's privacy and security office.
-> Don't enter real patient information. See also the [medical disclaimer](#medical-disclaimer).
+> **Hobby research project. Do not use it in hospitals or for patient care.**
+> RoundingOS is an experimental hobby research project. It has only ever been used with invented test patients
+> and contains **no real patient data**. It is **not HIPAA compliant**. Don't enter real patient information.
+> See also the [medical disclaimer](#medical-disclaimer).
 
 > **Encrypted on the device.** Every patient record is encrypted with your passphrase (phase 4 of the
 > local-first plan). The release checklist in `docs/plan.md` lists the device checks still needed before any
@@ -123,7 +121,7 @@ is a standalone preview of it.
 See `CHANGES.md` for the latest changes.
 
 ## Medical disclaimer
-RoundingOS is a proof-of-concept research project for a note-taking and organizing aid for clinicians, and is
+RoundingOS is a hobby research project for a note-taking and organizing aid for clinicians, and is
 not for use in hospitals or patient care (see the notice at the top). It is **not a medical device** and is not
 cleared or approved by any regulator. It does not replace clinical judgment. Verify every calculator
 result, score and threshold against the original source before acting on it. The software is provided

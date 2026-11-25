@@ -40,7 +40,7 @@ Also click through the screens you changed with the browser console open and che
 ## Rules
 
 - **Never commit real patient data**, including in tests, fixtures, screenshots or issue text. Use invented patients only.
-  RoundingOS is a proof-of-concept research project, not for hospital or clinical use (see the notice in the README).
+  RoundingOS is a hobby research project, not HIPAA compliant and not for hospital or clinical use (see the notice in the README).
   `data/` and backup files are git-ignored; keep it that way.
 - Keep the existing UI as it is unless a change is agreed first.
 - Escape all user and patient text before inserting it as HTML.
