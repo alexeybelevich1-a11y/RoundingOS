@@ -9,6 +9,9 @@ Saved data migrates automatically: the legacy `weights` checklist key becomes `b
 ## Warning before readable downloads
 - Downloading a progress note (.txt) or a sign-out (.txt or .md) now asks first, as the unencrypted .json export does: the file holds patient information in readable form and may sync to personal cloud storage. Copy and print are unchanged (cache v1.7.9).
 
+## Delete now removes the patient from saved copies
+- **Delete now** on an archived patient now also deletes them from the saved copies on this device, as the automatic deletion does. **Remove from census** on an active patient still keeps them in saved copies as a safety net, and its confirm message now says so (cache v1.7.7).
+
 ## Passphrase strength check
 - A new passphrase (setup, recovery, or an encrypted .rnos backup) must still be at least 10 characters, and now also can't be a common password (also with numbers or symbols swapped in), a repeated or sequential pattern such as "1234567890" or "abcabcabcabc", or one kind of character only unless it is 20 characters or longer. Checked on the device only. Existing passphrases keep working (cache v1.7.6).
 
