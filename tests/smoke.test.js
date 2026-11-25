@@ -67,6 +67,15 @@ test('manifest has the fields Android needs', async () => {
   assert(m.icons.some(i => i.sizes === '512x512' && i.purpose === 'maskable'), 'maskable 512 icon');
 });
 
+test('manifest has an "Open with test data" shortcut that opens ?demo=1 under any path', async () => {
+  const m = await (await fetch('../manifest.json', { cache: 'no-store' })).json();
+  const sc = (m.shortcuts || []).find(s => s.name === 'Open with test data');
+  assert(sc, 'shortcut present');
+  assertEqual(sc.url, './?demo=1', 'relative url, so it stays inside /RoundingOS/ on GitHub Pages');
+  const resolved = new URL(sc.url, 'https://example.org/RoundingOS/manifest.json');
+  assertEqual(resolved.pathname + resolved.search, '/RoundingOS/?demo=1', 'resolves inside the app scope');
+});
+
 test('service worker precaches every script and stylesheet the app loads', async () => {
   const sw = await (await fetch('../sw.js', { cache: 'no-store' })).text();
   const html = await (await fetch('../index.html', { cache: 'no-store' })).text();
