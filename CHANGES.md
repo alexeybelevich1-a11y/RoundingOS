@@ -9,6 +9,9 @@ Saved data migrates automatically: the legacy `weights` checklist key becomes `b
 ## Reminders don't outlive the patient
 - When a patient is deleted for good (**Delete now**, or the automatic deletion after the archive period), their reminders are deleted too. **Remove from census** keeps the reminder but shows it as "Removed patient" instead of the room and name. Reminders saved by older versions as "… (removed)" are relabeled the same way (cache v1.7.8).
 
+## Delete now removes the patient from saved copies
+- **Delete now** on an archived patient now also deletes them from the saved copies on this device, as the automatic deletion does. **Remove from census** on an active patient still keeps them in saved copies as a safety net, and its confirm message now says so (cache v1.7.7).
+
 ## Passphrase strength check
 - A new passphrase (setup, recovery, or an encrypted .rnos backup) must still be at least 10 characters, and now also can't be a common password (also with numbers or symbols swapped in), a repeated or sequential pattern such as "1234567890" or "abcabcabcabc", or one kind of character only unless it is 20 characters or longer. Checked on the device only. Existing passphrases keep working (cache v1.7.6).
 
