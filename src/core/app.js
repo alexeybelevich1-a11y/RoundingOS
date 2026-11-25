@@ -167,9 +167,10 @@
   let storageMode = 'loading';
   let saveTimer = null;
   let saveChannel = null;
-  // Recovery words at setup (recommended). false = set up with a passphrase only; a forgotten
-  // passphrase then loses this device's data. Devices already set up keep whatever they have.
-  const RECOVERY_WORDS = true;
+  // Recovery words at setup. Off (Anton, 2026-11-25): setup asks for a passphrase only, and a
+  // forgotten passphrase loses this device's data. true turns them back on for new setups.
+  // Devices already set up with words keep them ("Forgot passphrase?" on the lock screen).
+  const RECOVERY_WORDS = false;
   const DEFAULT_AUTO_LOCK_MINUTES = 15;
   const LOCKED_REMINDERS_KEY = 'roundingos_locked_reminders'; // due times only, no patient details
 

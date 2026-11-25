@@ -17,18 +17,17 @@ RoundingOS is a Progressive Web App served as static files from GitHub Pages:
 - **Laptop (Chrome / Edge):** the install icon at the right of the address bar, or **⋯ → Install app…**.
 - **iPhone (Safari):** **Share → Add to Home Screen**. Safari has no install prompt, so the menu item shows these steps.
 
-A fresh install first asks you to **choose a passphrase** and shows **12 recovery words** to write down (you type
-three of them back to check). Then it starts with an **empty census**. ⋯ → **Add 14 test patients** loads the sample patients.
+A fresh install first asks you to **choose a passphrase** (twice). Then it starts with an **empty census**. ⋯ → **Add 14 test patients** loads the sample patients.
 
-## Passphrase, recovery words and locking
+## Passphrase and locking
 - Every record (patients, the archive, settings and saved copies) is encrypted with AES-256-GCM using a random key.
-  That key is stored only locked by your passphrase (PBKDF2-SHA256, 600,000 rounds) and by your recovery words.
+  That key is stored only locked by your passphrase (PBKDF2-SHA256, 600,000 rounds).
 - The app opens locked and **locks itself** after 15 minutes without use (5, 15, 30 or 60 in ⋯ → Settings & backup),
   and when you choose ⋯ → **Lock now**. Locking reloads the page, so no patient data stays on screen or in memory.
-- **Forgot the passphrase?** On the lock screen, *Forgot passphrase?* takes your 12 recovery words and a new passphrase.
-- **Keep the recovery words safe and away from the device.** Without the passphrase and the words, the data on that
-  device cannot be opened by anyone, including you. Export an encrypted backup regularly.
-- Each device has its own passphrase and words. Backups (.rnos) have their own passphrase, typed at export.
+- **There is no way back in without the passphrase.** No recovery words are set up, so a forgotten passphrase means
+  that device's data is gone for good. Export an encrypted backup regularly, and keep its passphrase too.
+  (Devices set up before recovery words were switched off still have *Forgot passphrase?* on the lock screen.)
+- Each device has its own passphrase. Backups (.rnos) have their own passphrase, typed at export.
 
 ## Where data lives
 - Only on the device, in the installed app's on-device database (IndexedDB, one encrypted record per patient; see
