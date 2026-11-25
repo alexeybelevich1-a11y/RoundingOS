@@ -216,7 +216,7 @@
     app = await loadApp(null, { keepDb: true });
     try {
       assertEqual(app.doc.documentElement.dataset.storeReady, 'db', 'opens on the database');
-      assertEqual(app.recoveryWords && app.recoveryWords.length, 12, 'recovery words shown once');
+      assertEqual(app.recoveryWords, null, 'no recovery words (passphrase only)');
       assert(app.doc.getElementById('lockModal').classList.contains('hidden'), 'lock screen gone');
       assert(app.doc.getElementById('testDataBanner').classList.contains('hidden'), 'no "not encrypted" banner');
       assert(app.doc.getElementById('storageBadgeText').textContent.includes('encrypted'), 'badge says encrypted');
@@ -238,7 +238,7 @@
       const doc = app.frame.contentWindow.document;
       await waitFor(() => !doc.getElementById('lockModal').classList.contains('hidden'), 4000, 'lock screen');
       assert(!doc.getElementById('lockUnlockStep').classList.contains('hidden'), 'unlock step');
-      assert(!doc.getElementById('lockForgotBtn').classList.contains('hidden'), 'recovery offered');
+      assert(doc.getElementById('lockForgotBtn').classList.contains('hidden'), 'no recovery offered (set up without words)');
       assertEqual(doc.querySelectorAll('[data-patient-id], .patient-card').length, 0, 'no patients on screen');
       assert(!doc.body.textContent.includes(getInitialTestPatients()[0].name), 'no patient name in the page');
 

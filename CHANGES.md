@@ -6,6 +6,9 @@ Changed: `index.html`, `styles.css`, `app.js`, `data.js`, `progressnote.js`, `pl
 Saved data migrates automatically: the legacy `weights` checklist key becomes `bm`, and the UI state is reset to the new layout once.
 
 
+## Recovery words switched off
+- Setup now asks only for a passphrase (twice). No recovery words: **if you forget the passphrase, that device's data cannot be opened.** Export encrypted backups regularly. A device already set up with words keeps *Forgot passphrase?* on its lock screen (cache v1.7.3).
+
 ## VTE prophylaxis & structured discharge planning
 - **Progress note (`DISPOSITION & PROPHYLAXIS`):** added structured **VTE Prophylaxis** (`Enoxaparin (SC)`, `Heparin (SC)`, `Therapeutic AC — DOAC`, `Therapeutic AC — Warfarin`, `Therapeutic AC — Heparin / Enoxaparin`, `Mechanical / SCDs only`, `Ambulatory / none needed`) and **Discharge Plan** with timing (`T (Today)`, `T+1`, `T+2`, `>T+2`, `TBD`), auto-populated planned calendar date, and destination (`Home`, `Home with services`, `STR`, `Acute Rehab (IRF)`, `Assisted Living (ALF)`, `LTACH`, `Hospice`), alongside optional barriers/notes (`cache v1.7.2`).
 - **Note & Summary controls:** new **Prophylaxis & discharge** section in the Progress Note panel (with missing-field badge) synced with matching controls in the patient **Summary** tab and Sign-out handoffs.

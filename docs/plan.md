@@ -2,7 +2,7 @@
 
 *Written 2026-11-24 against `main` at `5a939f7`.*
 *Revised the same day at Anton's request: PWA first (Android first), then calculators, then the on-device database, then encryption as its own phase, then on-device voice.*
-*Status: phases 1 and 2 are merged (PRs #2–#6), apart from the manual checks. Phase 3 is merged (PRs #8, #9). Phase 4 (encryption) is built and in review (2026-11-25), with 12 recovery words pending Anton's confirmation. Phase 5 (on-device voice, Beta) is in progress.*
+*Status: phases 1 and 2 are merged (PRs #2–#6), apart from the manual checks. Phase 3 is merged (PRs #8, #9). Phase 4 (encryption) is merged (PR #15, 2026-11-25); Anton chose passphrase only, so recovery words are off for new setups. Phase 5 (on-device voice, Beta) is in progress.*
 
 Individual tasks are tracked separately (planned as GitHub issues). This file is the design and order of work; update it when a decision changes.
 
@@ -252,7 +252,7 @@ Manual, on both devices:
 - The data key is stored twice in `meta`, never in the clear: once locked by your **passphrase** (PBKDF2-SHA256, 600,000 iterations), and once locked by a **recovery key** shown one time as **12 words** (BIP-39: 128 random bits plus a checksum, so a typo is caught) for you to write down. The recovery key is derived with HKDF-SHA256: 128 random bits need no slow key derivation.
 - Each record's table and id are bound in as AES-GCM additional data, so encrypted rows can't be swapped between patients.
 - When you unlock, the data key lives only in memory as a non-extractable `CryptoKey`. The app locks itself after the idle time and when you choose "Lock now". Locking writes pending edits, drops the key and reloads the page, so nothing readable stays on screen or in memory; it also locks the app's other open tabs.
-- **Recovery words can be dropped** with one switch (`RECOVERY_WORDS` in `app.js`): setup then asks only for the passphrase and says that forgetting it loses that device's data. Devices already set up keep their recovery slot.
+- **Recovery words are off** (Anton, 2026-11-25): `RECOVERY_WORDS = false` in `app.js`, so setup asks only for the passphrase and says that forgetting it loses that device's data. The code stays, so turning them back on is one switch. Devices already set up with words keep their recovery slot.
 - If you forget the passphrase and lose the recovery words, the data is gone. That's the trade for real encryption, and the README and the setup screen say so.
 
 ### Data migration (plain rows → encrypted rows, no schema change)
@@ -272,7 +272,7 @@ This is not a database migration: the tables, keys and indexes from phase 3 stay
 
 | Risk | Mitigation |
 |---|---|
-| Forgotten passphrase | Recovery words at setup, with a "confirm you saved them" step. |
+| Forgotten passphrase | Data on that device is lost (recovery words are off by Anton's choice). Regular encrypted exports are the backup. |
 | Seal pass fails midway | One transaction: it either encrypts everything or nothing. Verified by re-reading before the plain mode is switched off. |
 | Unlock friction on rounds | 600k PBKDF2 takes ~0.3–1 s on a phone, once per unlock, not per save. The idle lock time is configurable. Biometric unlock (WebAuthn PRF) is a possible later addition, not part of this plan. |
 | Locked app while a reminder is due | On lock, the due times of open reminders (times only, no text or patient) are kept for that tab in `sessionStorage`; while locked, a due reminder shows a generic "RoundingOS reminder" notification and a note on the lock screen. |
@@ -372,13 +372,13 @@ Run on both devices after phase 4, before any real patient. Re-run the voice ite
 - [ ] Voice is Off (until phase 5); after phase 5, dictation and a voice command work in airplane mode
 - [ ] Network panel: no requests leave the device during a full session
 - [ ] IndexedDB and `localStorage` contain no readable patient text
-- [ ] A wrong passphrase fails; the recovery words work
+- [ ] A wrong passphrase fails
 - [ ] Laptop export → phone import: counts match, no duplicates, re-import is a no-op
 - [ ] A discharged test patient goes to the Archive, and is gone (also from Saved copies) after the delete window
 - [ ] Screens match the screenshots taken before phase 1
 
 ## Decisions for you
 
-1. **Recovery words** (phase 4): built in, 12 words written down at setup (recommended), pending your confirmation. Dropping them is one switch, and then a forgotten passphrase loses that device's data.
+1. **Recovery words** (phase 4): decided 2026-11-25, passphrase only. A forgotten passphrase loses that device's data; keep encrypted backups.
 2. **Public repo** (phase 1): fine for code, but anyone can see the dot phrases. Keep it public, or move to a private repo + Cloudflare Pages/Access.
 3. **Model download** (phase 5): from Hugging Face once (simpler), or self-hosted, so the app never contacts a third party.
