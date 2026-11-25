@@ -6,6 +6,10 @@ Changed: `index.html`, `styles.css`, `app.js`, `data.js`, `progressnote.js`, `pl
 Saved data migrates automatically: the legacy `weights` checklist key becomes `bm`, and the UI state is reset to the new layout once.
 
 
+## Patient tabs: Summary first
+- The patient panel's **Summary** and **Tasks** tabs switched places, so the tabs read Summary · Consults · Tasks · If / then.
+- A new install opens patients on **Summary**. The app still remembers the last tab you chose (cache v1.7.1).
+
 ## Encryption on the device (phase 4)
 - **Setup on first start:** choose a passphrase (twice), write down 12 recovery words, and type three of them back. A device that already has patients offers an encrypted backup first, then encrypts everything in one step and checks it.
 - Every record is encrypted (AES-256-GCM): patients, the archive, settings and saved copies. The database shows only ids, dates and counts.
