@@ -9,6 +9,9 @@ Saved data migrates automatically: the legacy `weights` checklist key becomes `b
 ## Auto-lock at most 15 minutes
 - Settings & backup now offers an automatic lock after **5 or 15 minutes** without use. A device set to 30 or 60 minutes locks after 15 (cache v1.7.10).
 
+## Generic reminder notifications
+- The system notification for a due reminder now always says only "RoundingOS reminder · A reminder is due. Open the app to see it." The patient and the reminder text show only in the popup inside the app, so they no longer appear on the lock screen, in notification history or on a watch (cache v1.7.4).
+
 ## VTE prophylaxis & structured discharge planning
 - **Progress note (`DISPOSITION & PROPHYLAXIS`):** added structured **VTE Prophylaxis** (`Enoxaparin (SC)`, `Heparin (SC)`, `Therapeutic AC — DOAC`, `Therapeutic AC — Warfarin`, `Therapeutic AC — Heparin / Enoxaparin`, `Mechanical / SCDs only`, `Ambulatory / none needed`) and **Discharge Plan** with timing (`T (Today)`, `T+1`, `T+2`, `>T+2`, `TBD`), auto-populated planned calendar date, and destination (`Home`, `Home with services`, `STR`, `Acute Rehab (IRF)`, `Assisted Living (ALF)`, `LTACH`, `Hospice`), alongside optional barriers/notes (`cache v1.7.2`).
 - **Note & Summary controls:** new **Prophylaxis & discharge** section in the Progress Note panel (with missing-field badge) synced with matching controls in the patient **Summary** tab and Sign-out handoffs.
