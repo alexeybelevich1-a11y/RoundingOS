@@ -218,7 +218,7 @@
       assertEqual(app.doc.documentElement.dataset.storeReady, 'db', 'opens on the database');
       assertEqual(app.recoveryWords && app.recoveryWords.length, 12, 'recovery words shown once');
       assert(app.doc.getElementById('lockModal').classList.contains('hidden'), 'lock screen gone');
-      assert(app.doc.getElementById('testDataBanner').classList.contains('hidden'), 'no "not encrypted" banner');
+      assert(app.doc.getElementById('storageErrorBanner').classList.contains('hidden'), 'no "can\'t store securely" banner');
       assert(app.doc.getElementById('storageBadgeText').textContent.includes('encrypted'), 'badge says encrypted');
       assert(!app.doc.getElementById('storageBadgeText').textContent.includes('not encrypted'), 'badge does not say not encrypted');
       assertEqual(app.doc.getElementById('lockWordsList').children.length, 0, 'words removed from the page');
