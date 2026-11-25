@@ -21,7 +21,7 @@ vendor/       dexie/ (Dexie 4.4.7)  vosk-browser/ (0.0.8, patched)  transformers
 labs/         voice-bench.html  (on-device voice test page; not loaded by the app)
 tests/        index.html  harness.js  *.test.js  ui-baseline/
 scripts/      serve.mjs (pnpm dev)  test.mjs (pnpm test)
-docs/         architecture.md  plan.md
+docs/         architecture.md  plan.md  user-guide.md
 ```
 
 Files are grouped by role: `src/core` runs the app, `src/clinical` holds clinical math and content (no DOM),
