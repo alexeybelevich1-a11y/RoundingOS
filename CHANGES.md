@@ -6,6 +6,9 @@ Changed: `index.html`, `styles.css`, `app.js`, `data.js`, `progressnote.js`, `pl
 Saved data migrates automatically: the legacy `weights` checklist key becomes `bm`, and the UI state is reset to the new layout once.
 
 
+## "Test data only" notice
+- A thin strip at the top of the app always reads **Test data only, not for clinical use.** RoundingOS is a hobby research project and is not HIPAA compliant (`cache v1.7.5`).
+
 ## Generic reminder notifications
 - The system notification for a due reminder now always says only "RoundingOS reminder · A reminder is due. Open the app to see it." The patient and the reminder text show only in the popup inside the app, so they no longer appear on the lock screen, in notification history or on a watch (cache v1.7.4).
 
